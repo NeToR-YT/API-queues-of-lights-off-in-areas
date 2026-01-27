@@ -36,8 +36,15 @@ def get_schedules():
     base = os.path.dirname(__file__)
     history_file = os.path.join(base, 'schedule_history.json')
     if os.path.exists(history_file):
-        with open(history_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        try:
+            with open(history_file, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:
+                    data = json.loads(content)
+                else:
+                    data = []
+        except json.JSONDecodeError:
+            data = []
         return jsonify(data)
     else:
         return jsonify([])
