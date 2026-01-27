@@ -1,6 +1,4 @@
-# Backend: Графіки відключень — Приклад
-
-Мета: зберегти лише бекенд та невеликий тестовий фронтенд, щоб швидко перевіряти роботу сервісу.
+# Backend: Графіки відключень
 
 Коротко:
 - Сервер: Flask + APScheduler
@@ -33,16 +31,9 @@ python backend\app.py
 
 Конфігурація Telegram fetcher (опціонально):
 - Щоб активувати збір повідомлень з каналу Telegram, створіть `backend/config.json` на основі `backend/config.example.json` і заповніть `api_id` та `api_hash`.
-- `backend/fetcher.py` — безпечний placeholder. Ви можете перенести логіку з `test.py` у `backend/fetcher.py` і використовувати `config.json` для секретів.
 
 Файли та структура:
 - `backend/app.py` — головний Flask додаток
 - `backend/fetcher.py` — фоновий/помічний скрипт для оновлення `schedule_history.json`
 - `backend/schedule_history.json` — збережена історія (для прикладу вже заповнена)
-- `backend/db/` — допоміжні JSON файли
-
-Якщо потрібно, допоможу:
-- поставити робочий Telethon fetcher без закладених секретів
-- додати Dockerfile або gunicorn-конфіг
-- написати прості тести для API
 
