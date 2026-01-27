@@ -2,7 +2,6 @@
 
 Коротко:
 - Сервер: Flask + APScheduler
-- Розміщено в `backend/`
 - Тестовий фронтенд: `backend/templates/index.html` (доступний за `/`)
 - Дані історії: `backend/schedule_history.json`
 
