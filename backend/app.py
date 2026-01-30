@@ -30,14 +30,24 @@ scheduler.start()
 def index():
     return render_template('index.html')
 
+@app.route('/api/cities' , methods=['GET'])
+def get_cities():
+    base = os.path.dirname(__file__)
+    file = os.path.join(base, 'cities.json')
+    if os.path.exists(file):
+        with open(file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify(data)
+    else:
+        return jsonify([]) 
 
-@app.route('/schedules', methods=['GET'])
+@app.route('/schedules_today', methods=['GET'])
 def get_schedules():
     base = os.path.dirname(__file__)
-    history_file = os.path.join(base, 'schedule_history.json')
-    if os.path.exists(history_file):
+    file = os.path.join(base, 'schedule_today.json')
+    if os.path.exists(file):
         try:
-            with open(history_file, 'r', encoding='utf-8') as f:
+            with open(file, 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 if content:
                     data = json.loads(content)
