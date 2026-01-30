@@ -9,16 +9,17 @@
     <div id="schedules"></div>
 
     <script>
+        
         async function loadSchedules() {
             try {
-                const response = await fetch('/schedules');
+                const response = await fetch('/api/cities');
                 const data = await response.json();
-                const container = document.getElementById('schedules');
+                const container = document.getElementById('cities');
                 container.innerHTML = '';
                 data.forEach(update => {
                     const div = document.createElement('div');
                     div.innerHTML = `
-                        <h3>Дата графіка: ${update.schedule_date}, Час: ${update.schedule_time}</h3>
+                        <h3>Дата графіка: ${update.cities}, Час: ${update.schedule_time}</h3>
                         <ul>
                             ${Object.entries(update.schedule).map(([queue, periods]) => 
                                 `<li><strong>${queue}:</strong> ${periods.join(', ')}</li>`
