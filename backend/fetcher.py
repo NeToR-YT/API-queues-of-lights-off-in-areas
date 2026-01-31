@@ -8,6 +8,7 @@ from telethon import TelegramClient
 
 base = os.path.dirname(__file__)
 config_path = os.path.join(base, 'config.json')
+today_file = os.path.join(base, 'schedule_today.json')
 history_file = os.path.join(base, 'schedule_history.json')
 
 if not os.path.exists(config_path):
@@ -72,6 +73,49 @@ def parse_schedule(text):
                 break
     return schedule
 
+def time_to_minutes(t):
+    """Convert HH:MM to minutes since midnight"""
+    try:
+        h, m = t.split(':')
+        return int(h) * 60 + int(m)
+    except Exception:
+        return None
+
+def period_to_tuple(period):
+    """Convert period 'HH:MM-HH:MM' to (start_min, end_min)"""
+    parts = period.split('-')
+    if len(parts) != 2:
+        return None
+    s = time_to_minutes(parts[0].strip())
+    e = time_to_minutes(parts[1].strip())
+    if s is None or e is None:
+        return None
+    return (s, e)
+
+def tuple_to_period(tup):
+    s, e = tup
+    return f"{s//60:02d}:{s%60:02d}-{e//60:02d}:{e%60:02d}"
+
+def merge_intervals(periods):
+    """Merge list of period strings into non-overlapping sorted periods"""
+    tuples = []
+    for p in periods:
+        t = period_to_tuple(p)
+        if t:
+            tuples.append(t)
+    if not tuples:
+        return []
+    tuples.sort()
+    merged = [tuples[0]]
+    for cur in tuples[1:]:
+        last = merged[-1]
+        if cur[0] <= last[1]:
+            # overlap or adjacent -> extend
+            merged[-1] = (last[0], max(last[1], cur[1]))
+        else:
+            merged.append(cur)
+    return [tuple_to_period(t) for t in merged]
+
 async def fetch_messages():
     """Fetch power outage schedules from Telegram channel"""
     client = TelegramClient(session_path, api_id, api_hash)
@@ -79,6 +123,15 @@ async def fetch_messages():
     try:
         await client.start()
         entity = await client.get_entity(channel_username)
+        
+        # Load existing today's schedule
+        try:
+            with open(today_file, 'r', encoding='utf-8') as f:
+                today_data = json.load(f)
+                if not isinstance(today_data, dict):
+                    today_data = {}
+        except (FileNotFoundError, json.JSONDecodeError):
+            today_data = {}
         
         # Load existing history
         try:
@@ -89,6 +142,24 @@ async def fetch_messages():
         except (FileNotFoundError, json.JSONDecodeError):
             history = []
         
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        # Rollover: move any stored dates that are not today into history
+        for stored_date in list(today_data.keys()):
+            if stored_date != today:
+                entry = today_data.get(stored_date, {})
+                sched = entry.get('schedule', {}) if isinstance(entry, dict) else {}
+                sched_time = entry.get('schedule_time', '') if isinstance(entry, dict) else ''
+                # Append to history if not present
+                if not any(h.get('schedule_date') == stored_date and h.get('schedule') == sched for h in history):
+                    history.append({
+                        'schedule_date': stored_date,
+                        'schedule_time': sched_time,
+                        'schedule': sched
+                    })
+                    print(f'Rolled over {stored_date} to history')
+                # remove from today_data
+                today_data.pop(stored_date, None)
+        
         # Fetch messages
         async for message in client.iter_messages(entity, limit=100):
             if is_power_outage_schedule(message.text):
@@ -97,14 +168,35 @@ async def fetch_messages():
                     parsed = parse_schedule(message.text)
                     if parsed:  # Only if queues found
                         update_time = (message.date + datetime.timedelta(hours=2)).strftime("%H:%M:%S")
-                        # Check if schedule already exists
-                        if not any(h['schedule'] == parsed for h in history):
-                            history.append({
-                                'schedule_date': schedule_date,
-                                'schedule_time': update_time,
-                                'schedule': parsed
-                            })
-                            print(f'Added new schedule for {schedule_date} at {update_time}')
+                        
+                        # If it's today's schedule - merge periods per queue
+                        if schedule_date == today:
+                            if schedule_date not in today_data:
+                                today_data[schedule_date] = {
+                                    'schedule_time': update_time,
+                                    'schedule': {}
+                                }
+
+                            # For each queue, merge existing periods with new ones
+                            existing = today_data[schedule_date].get('schedule', {})
+                            for queue, new_periods in parsed.items():
+                                old_periods = existing.get(queue, [])
+                                combined = old_periods + new_periods
+                                merged = merge_intervals(combined)
+                                existing[queue] = merged
+
+                            # Update last update time
+                            today_data[schedule_date]['schedule_time'] = update_time
+                            today_data[schedule_date]['schedule'] = existing
+                            print(f'Merged schedule for {schedule_date} at {update_time}')
+                        else:
+                            # Ignore non-today schedules (do not save future/other-day schedules now)
+                            # They will be handled by rollover at midnight when that date becomes 'today'
+                            print(f'Ignoring schedule for {schedule_date} (not today)')
+        
+        # Save today's schedule
+        with open(today_file, 'w', encoding='utf-8') as f:
+            json.dump(today_data, f, ensure_ascii=False, indent=4)
         
         # Sort history by date and time (newest first)
         history.sort(key=lambda x: (x['schedule_date'], x['schedule_time']), reverse=True)
@@ -113,7 +205,7 @@ async def fetch_messages():
         with open(history_file, 'w', encoding='utf-8') as f:
             json.dump(history, f, ensure_ascii=False, indent=4)
         
-        print(f'Successfully updated {history_file}')
+        print(f'Successfully updated {today_file} and {history_file}')
         return True
         
     except Exception as e:
