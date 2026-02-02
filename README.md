@@ -2,8 +2,8 @@
 
 Коротко:
 - Сервер: Flask + APScheduler
-- Тестовий фронтенд: `backend/templates/index.html` (доступний за `/`)
-- Дані історії: `backend/schedule_history.json`
+- Тестовий фронтенд: `templates/index.html`
+- Дані історії: `schedule_history.json`, `schedule_today.json`
 
 Швидкий старт (Windows):
 
@@ -28,7 +28,7 @@ python backend\app.py
 
 4. Відкрийте в браузері: http://127.0.0.1:5000
 
-Конфігурація Telegram fetcher (опціонально):
+Конфігурація Telegram fetcher:
 - Щоб активувати збір повідомлень з каналу Telegram, створіть `backend/config.json` на основі `backend/config.example.json` і заповніть `api_id` та `api_hash`.
 
 Файли та структура:
