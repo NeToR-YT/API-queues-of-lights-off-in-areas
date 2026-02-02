@@ -110,7 +110,6 @@ def merge_intervals(periods):
     for cur in tuples[1:]:
         last = merged[-1]
         if cur[0] <= last[1]:
-            # overlap or adjacent -> extend
             merged[-1] = (last[0], max(last[1], cur[1]))
         else:
             merged.append(cur)
@@ -123,8 +122,7 @@ async def fetch_messages():
     try:
         await client.start()
         entity = await client.get_entity(channel_username)
-        
-        # Load existing today's schedule
+
         try:
             with open(today_file, 'r', encoding='utf-8') as f:
                 today_data = json.load(f)
@@ -132,8 +130,7 @@ async def fetch_messages():
                     today_data = {}
         except (FileNotFoundError, json.JSONDecodeError):
             today_data = {}
-        
-        # Load existing history
+
         try:
             with open(history_file, 'r', encoding='utf-8') as f:
                 history = json.load(f)
@@ -143,13 +140,11 @@ async def fetch_messages():
             history = []
         
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        # Rollover: move any stored dates that are not today into history
         for stored_date in list(today_data.keys()):
             if stored_date != today:
                 entry = today_data.get(stored_date, {})
                 sched = entry.get('schedule', {}) if isinstance(entry, dict) else {}
                 sched_time = entry.get('schedule_time', '') if isinstance(entry, dict) else ''
-                # Append to history if not present
                 if not any(h.get('schedule_date') == stored_date and h.get('schedule') == sched for h in history):
                     history.append({
                         'schedule_date': stored_date,
@@ -157,19 +152,18 @@ async def fetch_messages():
                         'schedule': sched
                     })
                     print(f'Rolled over {stored_date} to history')
-                # remove from today_data
                 today_data.pop(stored_date, None)
         
-        # Fetch messages
+
         async for message in client.iter_messages(entity, limit=100):
             if is_power_outage_schedule(message.text):
                 schedule_date = parse_date(message.text)
                 if schedule_date:
                     parsed = parse_schedule(message.text)
-                    if parsed:  # Only if queues found
+                    if parsed: 
                         update_time = (message.date + datetime.timedelta(hours=2)).strftime("%H:%M:%S")
                         
-                        # If it's today's schedule - merge periods per queue
+
                         if schedule_date == today:
                             if schedule_date not in today_data:
                                 today_data[schedule_date] = {
@@ -177,7 +171,6 @@ async def fetch_messages():
                                     'schedule': {}
                                 }
 
-                            # For each queue, merge existing periods with new ones
                             existing = today_data[schedule_date].get('schedule', {})
                             for queue, new_periods in parsed.items():
                                 old_periods = existing.get(queue, [])
@@ -185,23 +178,18 @@ async def fetch_messages():
                                 merged = merge_intervals(combined)
                                 existing[queue] = merged
 
-                            # Update last update time
                             today_data[schedule_date]['schedule_time'] = update_time
                             today_data[schedule_date]['schedule'] = existing
                             print(f'Merged schedule for {schedule_date} at {update_time}')
                         else:
-                            # Ignore non-today schedules (do not save future/other-day schedules now)
-                            # They will be handled by rollover at midnight when that date becomes 'today'
+
                             print(f'Ignoring schedule for {schedule_date} (not today)')
         
-        # Save today's schedule
         with open(today_file, 'w', encoding='utf-8') as f:
             json.dump(today_data, f, ensure_ascii=False, indent=4)
         
-        # Sort history by date and time (newest first)
         history.sort(key=lambda x: (x['schedule_date'], x['schedule_time']), reverse=True)
         
-        # Save history
         with open(history_file, 'w', encoding='utf-8') as f:
             json.dump(history, f, ensure_ascii=False, indent=4)
         
@@ -214,7 +202,6 @@ async def fetch_messages():
     finally:
         await client.disconnect()
 
-# Run the async function
 if __name__ == '__main__':
     try:
         asyncio.run(fetch_messages())

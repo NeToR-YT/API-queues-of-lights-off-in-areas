@@ -2,39 +2,234 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Графіки відключень — Тест</title>
+    <title>Тест API графіків відключень</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #007bff;
+            margin-top: 0;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            background-color: #f9f9f9;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .response pre {
+            margin: 0;
+            font-size: 12px;
+            color: #333;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background-color: #fff5f5;
+            color: #721c24;
+        }
+        .success {
+            border-left-color: #28a745;
+            background-color: #f5fff5;
+            color: #155724;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Тестовий фронтенд для перегляду графіків відключень</h1>
-    <div id="schedules"></div>
+    <h1>🔌 Тест API графіків відключень</h1>
+    
+    <div class="grid-2">
+        <!-- Тест /api/cities -->
+        <div class="test-section">
+            <h2>1. GET /api/cities</h2>
+            <p>Отримати список всіх міст</p>
+            <div class="controls">
+                <button onclick="testCities()">Виконати</button>
+            </div>
+            <div id="cities-response"></div>
+        </div>
+
+        <!-- Тест /api/schedules -->
+        <div class="test-section">
+            <h2>2. GET /api/schedules</h2>
+            <p>Отримати розклад по містам та датам</p>
+            <div class="controls">
+                <input type="number" id="schedules-city" placeholder="City ID" value="1" min="1">
+                <input type="date" id="schedules-date" placeholder="Дата">
+                <input type="text" id="schedules-queue" placeholder="Черга (опціонально)">
+                <button onclick="testSchedules()">Виконати</button>
+            </div>
+            <div id="schedules-response"></div>
+        </div>
+
+        <!-- Тест /api/schedules/today -->
+        <div class="test-section">
+            <h2>3. GET /api/schedules/today</h2>
+            <p>Розклад на сьогодні</p>
+            <div class="controls">
+                <input type="number" id="today-city" placeholder="City ID" value="1" min="1">
+                <input type="text" id="today-queue" placeholder="Черга (опціонально)">
+                <button onclick="testSchedulesToday()">Виконати</button>
+            </div>
+            <div id="today-response"></div>
+        </div>
+
+        <!-- Тест всіх даних -->
+        <div class="test-section">
+            <h2>4. Швидкий тест</h2>
+            <p>Виконати всі тести разом</p>
+            <div class="controls">
+                <button onclick="testAll()">Тестувати все</button>
+            </div>
+            <div id="all-response"></div>
+        </div>
+    </div>
 
     <script>
-        
-        async function loadSchedules() {
+        function formatDate(date) {
+            if (!date) return new Date().toISOString().split('T')[0];
+            return date;
+        }
+
+        function displayResponse(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            const className = isError ? 'response error' : 'response success';
+            element.innerHTML = `<div class="${className}"><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+        }
+
+        async function testCities() {
             try {
                 const response = await fetch('/api/cities');
                 const data = await response.json();
-                const container = document.getElementById('cities');
-                container.innerHTML = '';
-                data.forEach(update => {
-                    const div = document.createElement('div');
-                    div.innerHTML = `
-                        <h3>Дата графіка: ${update.cities}, Час: ${update.schedule_time}</h3>
-                        <ul>
-                            ${Object.entries(update.schedule).map(([queue, periods]) => 
-                                `<li><strong>${queue}:</strong> ${periods.join(', ')}</li>`
-                            ).join('')}
-                        </ul>
-                        <hr>
-                    `;
-                    container.appendChild(div);
-                });
+                displayResponse('cities-response', data, false);
             } catch (error) {
-                console.error('Помилка завантаження:', error);
+                displayResponse('cities-response', { error: error.message }, true);
             }
         }
 
-        loadSchedules();
+        async function testSchedules() {
+            try {
+                const cityId = document.getElementById('schedules-city').value;
+                const date = document.getElementById('schedules-date').value || formatDate();
+                const queue = document.getElementById('schedules-queue').value;
+
+                let url = `/api/schedules?city_id=${cityId}&date=${date}`;
+                if (queue) url += `&queue=${queue}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    displayResponse('schedules-response', data, true);
+                } else {
+                    displayResponse('schedules-response', data, false);
+                }
+            } catch (error) {
+                displayResponse('schedules-response', { error: error.message }, true);
+            }
+        }
+
+        async function testSchedulesToday() {
+            try {
+                const cityId = document.getElementById('today-city').value;
+                const queue = document.getElementById('today-queue').value;
+
+                let url = `/api/schedules/today?city_id=${cityId}`;
+                if (queue) url += `&queue=${queue}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    displayResponse('today-response', data, true);
+                } else {
+                    displayResponse('today-response', data, false);
+                }
+            } catch (error) {
+                displayResponse('today-response', { error: error.message }, true);
+            }
+        }
+
+        async function testAll() {
+            const element = document.getElementById('all-response');
+            element.innerHTML = '<div class="response"><pre>Тестування...</pre></div>';
+
+            const results = {};
+
+            try {
+                // Тест 1: Cities
+                const citiesResp = await fetch('/api/cities');
+                results.cities = await citiesResp.json();
+
+                // Тест 2: Schedules
+                const schedulesResp = await fetch('/api/schedules?city_id=1&date=' + formatDate());
+                results.schedules = await schedulesResp.json();
+
+                // Тест 3: Today
+                const todayResp = await fetch('/api/schedules/today?city_id=1');
+                results.today = await todayResp.json();
+
+                displayResponse('all-response', results, false);
+            } catch (error) {
+                displayResponse('all-response', { error: error.message }, true);
+            }
+        }
+
+        // Встановлюємо поточну дату при завантаженні
+        window.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('schedules-date').value = formatDate();
+        });
     </script>
 </body>
 </html>
