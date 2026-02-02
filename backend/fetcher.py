@@ -10,6 +10,7 @@ base = os.path.dirname(__file__)
 config_path = os.path.join(base, 'config.json')
 today_file = os.path.join(base, 'schedule_today.json')
 history_file = os.path.join(base, 'schedule_history.json')
+tomorrow_file = os.path.join(base, 'schedule_tomorrow.json')
 
 if not os.path.exists(config_path):
     print('No config.json found in backend/. Create backend/config.json from config.example.json')
@@ -31,8 +32,18 @@ def is_power_outage_schedule(text):
     """Check if message contains power outage schedule"""
     if text is None:
         return False
-    keywords = ["графік погодинних вимкнень", "Оновлений графік", "ГОП", "ГПВ", "відсутності електропостачання"]
-    return any(keyword in text for keyword in keywords)
+    t = text.lower()
+    keywords = [
+        "графік погодинних вимкнень",
+        "графіки погодинних вимкнень",
+        "оновлений графік",
+        "оновлені графіки",
+        "гоп",
+        "гпв",
+        "відсутності електропостачання",
+        "години відсутності електропостачання",
+    ]
+    return any(keyword in t for keyword in keywords)
 
 def parse_date(text):
     """Parse schedule date from message text"""
@@ -141,6 +152,14 @@ async def fetch_messages():
         except (FileNotFoundError, json.JSONDecodeError):
             history = []
         
+        try:
+            with open(tomorrow_file, 'r', encoding='utf-8') as f:
+                tomorrow_data = json.load(f)
+                if not isinstance(tomorrow_data, dict):
+                    tomorrow_data = {}
+        except (FileNotFoundError, json.JSONDecodeError):
+            tomorrow_data = {}
+        
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         for stored_date in list(today_data.keys()):
             if stored_date != today:
@@ -166,6 +185,8 @@ async def fetch_messages():
                         update_time = (message.date + datetime.timedelta(hours=2)).strftime("%H:%M:%S")
                         
 
+                        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+
                         if schedule_date == today:
                             if schedule_date not in today_data:
                                 today_data[schedule_date] = {
@@ -183,19 +204,37 @@ async def fetch_messages():
                             today_data[schedule_date]['schedule_time'] = update_time
                             today_data[schedule_date]['schedule'] = existing
                             print(f'Merged schedule for {schedule_date} at {update_time}')
-                        else:
+                        elif schedule_date == tomorrow:
+                            if schedule_date not in tomorrow_data:
+                                tomorrow_data[schedule_date] = {
+                                    'schedule_time': update_time,
+                                    'schedule': {}
+                                }
 
-                            print(f'Ignoring schedule for {schedule_date} (not today)')
+                            existing_t = tomorrow_data[schedule_date].get('schedule', {})
+                            for queue, new_periods in parsed.items():
+                                old_periods = existing_t.get(queue, [])
+                                combined = old_periods + new_periods
+                                merged = merge_intervals(combined)
+                                existing_t[queue] = merged
+
+                            tomorrow_data[schedule_date]['schedule_time'] = update_time
+                            tomorrow_data[schedule_date]['schedule'] = existing_t
+                            print(f'Merged tomorrow schedule for {schedule_date} at {update_time}')
+                        else:
+                            print(f'Ignoring schedule for {schedule_date} (not today or tomorrow)')
         
         with open(today_file, 'w', encoding='utf-8') as f:
             json.dump(today_data, f, ensure_ascii=False, indent=4)
+        with open(tomorrow_file, 'w', encoding='utf-8') as f:
+            json.dump(tomorrow_data, f, ensure_ascii=False, indent=4)
         
         history.sort(key=lambda x: (x['schedule_date'], x['schedule_time']), reverse=True)
         
         with open(history_file, 'w', encoding='utf-8') as f:
             json.dump(history, f, ensure_ascii=False, indent=4)
         
-        print(f'Successfully updated {today_file} and {history_file}')
+        print(f'Successfully updated {today_file}, {tomorrow_file} and {history_file}')
         return True
         
     except Exception as e:
