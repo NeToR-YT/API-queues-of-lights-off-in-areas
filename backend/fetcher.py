@@ -36,10 +36,10 @@ def is_power_outage_schedule(text):
 
 def parse_date(text):
     """Parse schedule date from message text"""
-    match = re.search(r'(\d{1,2}) (\w+)', text)
+    match = re.search(r'(\d{1,2})\s+([\w\u0400-\u04FF]+)', text)
     if match:
         day = int(match.group(1))
-        month_str = match.group(2)
+        month_str = match.group(2).lower().strip().strip('.,')
         months = {
             'січня': 1, 'лютого': 2, 'березня': 3, 'квітня': 4, 'травня': 5, 'червня': 6,
             'липня': 7, 'серпня': 8, 'вересня': 9, 'жовтня': 10, 'листопада': 11, 'грудня': 12
@@ -52,6 +52,8 @@ def parse_date(text):
 
 def parse_schedule(text):
     """Parse power outage schedule from message text"""
+    text = text.replace('\u2013', '-').replace('\u2014', '-').replace('\u2010', '-')
+    text = text.replace('\u00A0', ' ')
     lines = text.split('\n')
     schedule = {}
     in_schedule = False
@@ -64,7 +66,7 @@ def parse_schedule(text):
             if line and '.' in line and '-' in line:
                 parts = line.split(' ', 1)
                 if len(parts) == 2:
-                    queue = parts[0]
+                    queue = parts[0].rstrip(':')
                     periods = [p.strip() for p in parts[1].split(',')]
                     schedule[queue] = periods
             elif not line:
