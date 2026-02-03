@@ -103,11 +103,16 @@ def period_to_tuple(period):
     e = time_to_minutes(parts[1].strip())
     if s is None or e is None:
         return None
+    # handle periods that cross midnight (end <= start)
+    if e <= s:
+        e += 24 * 60
     return (s, e)
 
 def tuple_to_period(tup):
     s, e = tup
-    return f"{s//60:02d}:{s%60:02d}-{e//60:02d}:{e%60:02d}"
+    # normalize end to 0-1439 range for display (00:00 for midnight)
+    e_mod = e % (24 * 60)
+    return f"{s//60:02d}:{s%60:02d}-{e_mod//60:02d}:{e_mod%60:02d}"
 
 def merge_intervals(periods):
     """Merge list of period strings into non-overlapping sorted periods"""
