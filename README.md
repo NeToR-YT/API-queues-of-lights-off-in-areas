@@ -36,7 +36,7 @@ python backend\app.py
 - `backend/fetcher.py` — фоновий/помічний скрипт для оновлення `schedule_history.json`
 - `backend/schedule_history.json` — збережена історія (для прикладу вже заповнена)
 
-#Frontend:  
+# Frontend:  
 Щоб активувати збір повідомлень з каналу Telegram, створіть `backend/config.json` на основі `backend/config.example.json` і заповніть `api_id` та `api_hash`.
   
 ## Файли та структура:
