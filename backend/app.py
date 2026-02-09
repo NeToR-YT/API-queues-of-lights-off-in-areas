@@ -68,6 +68,7 @@ def get_schedules():
     history_file = os.path.join(base, 'schedule_history.json')
     schedule_data = None
     schedule_time = None
+    emergency_outages = False
     
     if os.path.exists(history_file):
         try:
@@ -77,6 +78,7 @@ def get_schedules():
                     if item.get('schedule_date') == date:
                         schedule_data = item.get('schedule', {})
                         schedule_time = item.get('schedule_time', '')
+                        emergency_outages = item.get('emergency_outages', False)
                         break
         except json.JSONDecodeError:
             pass
@@ -112,7 +114,8 @@ def get_schedules():
         "city_name": city_name or "Невідоме місто",
         "date": date,
         "time": schedule_time,
-        "schedule": filtered_schedule
+        "schedule": filtered_schedule,
+        "emergency_outages": emergency_outages
     }
     
     return jsonify(response)
@@ -138,6 +141,7 @@ def get_schedules_today():
     schedule_data = None
     schedule_time = None
     schedule_date = None
+    emergency_outages = False
     
     if os.path.exists(today_file):
         try:
@@ -147,6 +151,7 @@ def get_schedules_today():
                     schedule_date = date_key
                     schedule_data = date_content.get('schedule', {})
                     schedule_time = date_content.get('schedule_time', '')
+                    emergency_outages = date_content.get('emergency_outages', False)
                     break
         except json.JSONDecodeError:
             pass
@@ -181,7 +186,8 @@ def get_schedules_today():
         "city_name": city_name or "Невідоме місто",
         "date": schedule_date,
         "time": schedule_time,
-        "schedule": filtered_schedule
+        "schedule": filtered_schedule,
+        "emergency_outages": emergency_outages
     }
     
     return jsonify(response)
