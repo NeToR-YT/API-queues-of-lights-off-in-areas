@@ -45,6 +45,37 @@ def is_power_outage_schedule(text):
     ]
     return any(keyword in t for keyword in keywords)
 
+def is_emergency_outage_active(text):
+    """Detect whether message states emergency outages (ГАВ/СГАВ) are applied.
+
+    Returns True when a sentence contains positive emergency keywords without
+    nearby negation words (e.g. "скасовані").
+    """
+    if not text:
+        return False
+    t = text.lower()
+    positive = [
+        'аварійних відключень',
+        'аварійні відключення',
+        'га в',
+        'гaв',
+        'гав',
+        'гав)',
+        'сгав',
+        'сга',
+        'застосовані графіки аварійних відключень',
+        'застосовані графіки аварійних',
+    ]
+    negations = ['скасован', 'не застосов', 'не буд', 'не застосовані', 'скасовано', 'не діють']
+
+    sentences = re.split(r'[\n\.\!\?]+', t)
+    for s in sentences:
+        if any(p in s for p in positive):
+            if any(n in s for n in negations):
+                return False
+            return True
+    return False
+
 def parse_date(text):
     """Parse schedule date from message text"""
     match = re.search(r'(\d{1,2})\s+([\w\u0400-\u04FF]+)', text)
@@ -103,14 +134,12 @@ def period_to_tuple(period):
     e = time_to_minutes(parts[1].strip())
     if s is None or e is None:
         return None
-    # handle periods that cross midnight (end <= start)
     if e <= s:
         e += 24 * 60
     return (s, e)
 
 def tuple_to_period(tup):
     s, e = tup
-    # normalize end to 0-1439 range for display (00:00 for midnight)
     e_mod = e % (24 * 60)
     return f"{s//60:02d}:{s%60:02d}-{e_mod//60:02d}:{e_mod%60:02d}"
 
@@ -171,11 +200,13 @@ async def fetch_messages():
                 entry = today_data.get(stored_date, {})
                 sched = entry.get('schedule', {}) if isinstance(entry, dict) else {}
                 sched_time = entry.get('schedule_time', '') if isinstance(entry, dict) else ''
+                emergency_flag = entry.get('emergency_outages', False) if isinstance(entry, dict) else False
                 if not any(h.get('schedule_date') == stored_date and h.get('schedule') == sched for h in history):
                     history.append({
                         'schedule_date': stored_date,
                         'schedule_time': sched_time,
-                        'schedule': sched
+                        'schedule': sched,
+                        'emergency_outages': emergency_flag
                     })
                     print(f'Rolled over {stored_date} to history')
                 today_data.pop(stored_date, None)
@@ -186,19 +217,26 @@ async def fetch_messages():
                 schedule_date = parse_date(message.text)
                 if schedule_date:
                     parsed = parse_schedule(message.text)
-                    if parsed: 
-                        update_time = (message.date + datetime.timedelta(hours=2)).strftime("%H:%M:%S")
+                    update_time = (message.date + datetime.timedelta(hours=2)).strftime("%H:%M:%S")
+                    emergency_flag = is_emergency_outage_active(message.text)
+                    
+
+                    tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+
+                    if schedule_date == today:
+                        if schedule_date not in today_data:
+                            today_data[schedule_date] = {
+                                'schedule_time': update_time,
+                                'schedule': {},
+                                'emergency_outages': emergency_flag
+                            }
+
+                        # Update emergency_outages flag regardless of whether schedule is present
+                        existing_em = today_data[schedule_date].get('emergency_outages', False)
+                        today_data[schedule_date]['emergency_outages'] = bool(existing_em or emergency_flag)
                         
-
-                        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-
-                        if schedule_date == today:
-                            if schedule_date not in today_data:
-                                today_data[schedule_date] = {
-                                    'schedule_time': update_time,
-                                    'schedule': {}
-                                }
-
+                        # Merge schedule if present
+                        if parsed:
                             existing = today_data[schedule_date].get('schedule', {})
                             for queue, new_periods in parsed.items():
                                 old_periods = existing.get(queue, [])
@@ -209,13 +247,23 @@ async def fetch_messages():
                             today_data[schedule_date]['schedule_time'] = update_time
                             today_data[schedule_date]['schedule'] = existing
                             print(f'Merged schedule for {schedule_date} at {update_time}')
-                        elif schedule_date == tomorrow:
-                            if schedule_date not in tomorrow_data:
-                                tomorrow_data[schedule_date] = {
-                                    'schedule_time': update_time,
-                                    'schedule': {}
-                                }
+                        else:
+                            print(f'Updated emergency flag for {schedule_date} at {update_time}')
+                            
+                    elif schedule_date == tomorrow:
+                        if schedule_date not in tomorrow_data:
+                            tomorrow_data[schedule_date] = {
+                                'schedule_time': update_time,
+                                'schedule': {},
+                                'emergency_outages': emergency_flag
+                            }
 
+                        # Update emergency_outages flag regardless of whether schedule is present
+                        existing_t_em = tomorrow_data[schedule_date].get('emergency_outages', False)
+                        tomorrow_data[schedule_date]['emergency_outages'] = bool(existing_t_em or emergency_flag)
+                        
+                        # Merge schedule if present
+                        if parsed:
                             existing_t = tomorrow_data[schedule_date].get('schedule', {})
                             for queue, new_periods in parsed.items():
                                 old_periods = existing_t.get(queue, [])
@@ -227,7 +275,9 @@ async def fetch_messages():
                             tomorrow_data[schedule_date]['schedule'] = existing_t
                             print(f'Merged tomorrow schedule for {schedule_date} at {update_time}')
                         else:
-                            print(f'Ignoring schedule for {schedule_date} (not today or tomorrow)')
+                            print(f'Updated emergency flag for {schedule_date} at {update_time}')
+                    else:
+                        print(f'Ignoring schedule for {schedule_date} (not today or tomorrow)')
         
         with open(today_file, 'w', encoding='utf-8') as f:
             json.dump(today_data, f, ensure_ascii=False, indent=4)
