@@ -1,1 +1,9 @@
-[]
+[
+    {
+        "channel_id": 1,
+        "schedule_date": "2026-02-13",
+        "schedule_time": "19:57:52",
+        "schedule": {},
+        "emergency_outages": false
+    }
+]

@@ -1,0 +1,38 @@
+{
+  "api_id": 32787200,
+  "api_hash": "0462187106151415754ac85f335c42e2",
+  "session_path": "session_name",
+  "channels": [
+    {
+      "id": 1,
+      "name": "Черкаси",
+      "username": "pat_cherkasyoblenergo"
+    },
+    {
+      "id": 2,
+      "name": "Запоріжжя",
+      "username": "Zaporizhzhyaoblenergo_news"
+    },
+    {
+      "id": 3,
+      "name": "Миколаїв",
+      "username": "mk_energy_ua"
+    },
+    {
+      "id": 4,
+      "name": "Харків",
+      "username": "kharkivenergy"
+    },
+    {
+      "id": 5,
+      "name": "Кіровоград",
+      "username": "svitloff"
+    }
+  ],
+  "batch_parser": {
+    "batch_size": 2,
+    "batch_delay": 10,
+    "limit_messages": 15
+  },
+  "timezone_offset": 2
+}
