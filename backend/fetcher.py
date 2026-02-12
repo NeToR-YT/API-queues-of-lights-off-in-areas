@@ -41,6 +41,9 @@ def is_power_outage_schedule(text):
         return False
     t = text.lower()
     keywords = [
+        "графік відключення світла",
+        "графіки відключення світла",
+        "графіки відключень світла",
         "графік погодинних вимкнень",
         "графіки погодинних вимкнень",
         "оновлений графік",
@@ -85,6 +88,25 @@ def is_emergency_outage_active(text):
 
 def parse_date(text):
     """Parse schedule date from message text"""
+    if not text:
+        return None
+    num_match = re.search(r'(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?', text)
+    if num_match:
+        day = int(num_match.group(1))
+        month = int(num_match.group(2))
+        year = num_match.group(3)
+        tz = datetime.timezone(datetime.timedelta(hours=timezone_offset))
+        if year:
+            year = int(year)
+            if year < 100:
+                year += 2000
+        else:
+            year = datetime.datetime.now(tz).year
+        try:
+            datetime.date(year, month, day)
+            return f"{year:04d}-{month:02d}-{day:02d}"
+        except ValueError:
+            pass
     match = re.search(r'(\d{1,2})\s+([\w\u0400-\u04FF]+)', text)
     if match:
         day = int(match.group(1))
@@ -113,15 +135,49 @@ def parse_schedule(text):
     text = normalize_dashes(text)
     lines = text.split('\n')
     schedule = {}
+    current_queue = None
+
+    def parse_period(period):
+        time_match = re.search(r'(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})', period)
+        if time_match:
+            start_h, start_m, end_h, end_m = map(int, time_match.groups())
+            return f"{start_h:02d}:{start_m:02d}-{end_h:02d}:{end_m:02d}"
+        hour_match = re.search(r'(\d{1,2})\s*-\s*(\d{1,2})', period)
+        if hour_match:
+            start_h, end_h = map(int, hour_match.groups())
+            return f"{start_h:02d}:00-{end_h:02d}:00"
+        return None
+
+    def parse_hour_periods(times_str):
+        periods = []
+        for part in re.split(r'[;,]', times_str):
+            part = part.strip()
+            if not part:
+                continue
+            parsed = parse_period(part)
+            if parsed:
+                periods.append(parsed)
+        return periods
     
     for line in lines:
         line = line.strip()
         if not line:
             continue
         
-        line = re.sub(r'[🔹❗✅➡️💡⚠️]+', '', line).strip()
+        line = re.sub(r'[🔹❗✅➡️💡⚠️🗓📍⚡🏆⌛️]+', '', line).strip()
+
+        queue_header = re.search(r'(?:черга|група)\s*\[?\s*([0-6](?:\.[12])?)\s*\]?', line, re.IGNORECASE)
+        if queue_header:
+            current_queue = queue_header.group(1).strip()
+
+        graph_match = re.search(r'графік\s*:?\s*(.*)$', line, re.IGNORECASE)
+        if graph_match and current_queue:
+            periods = parse_hour_periods(graph_match.group(1))
+            if periods:
+                schedule[current_queue] = periods
+            continue
         
-        match = re.match(r'^([0-6](?:\.[12])?)\s*[:–\-]?\s*(\d{2}:\d{2}.*)$', line)
+        match = re.match(r'^([0-6](?:\.[12])?)\s*[:–\-]?\s*(\d{1,2}(?::\d{2})?.*)$', line)
         if match:
             queue = match.group(1).strip()
             times_str = match.group(2).strip()
@@ -138,10 +194,9 @@ def parse_schedule(text):
             
             valid_periods = []
             for period in periods:
-                time_match = re.search(r'(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})', period)
-                if time_match:
-                    start_h, start_m, end_h, end_m = map(int, time_match.groups())
-                    valid_periods.append(f"{start_h:02d}:{start_m:02d}-{end_h:02d}:{end_m:02d}")
+                parsed = parse_period(period)
+                if parsed:
+                    valid_periods.append(parsed)
             
             if valid_periods and queue:
                 schedule[queue] = valid_periods
