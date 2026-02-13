@@ -22,6 +22,11 @@
       "id": 4,
       "name": "Харків",
       "username": "kharkivenergy"
+    },
+    {
+      "id": 5,
+      "name": "Кіровоград",
+      "username": "svitloff"
     }
   ],
   "batch_parser": {

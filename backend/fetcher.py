@@ -55,6 +55,14 @@ def is_power_outage_schedule(text):
     ]
     return any(keyword in t for keyword in keywords)
 
+def has_queue_schedule(text):
+    """Detect queue/time patterns like '1.1: 11:30 - 15:30' even without keywords"""
+    if not text:
+        return False
+    t = normalize_dashes(text)
+    # Look for queue pattern like 1.1: or 2.2: followed by time range
+    return bool(re.search(r'\b[1-6]\.[12]\s*:\s*\d{1,2}[:.:]\d{2}', t))
+
 def is_emergency_outage_active(text):
     """Detect whether message states emergency outages (ГАВ/СГАВ) are applied.
 
@@ -90,7 +98,29 @@ def parse_date(text):
     """Parse schedule date from message text"""
     if not text:
         return None
-    num_match = re.search(r'(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?', text)
+
+    months_map = {
+        'січня': 1, 'лютого': 2, 'березня': 3, 'квітня': 4, 'травня': 5, 'червня': 6,
+        'липня': 7, 'серпня': 8, 'вересня': 9, 'жовтня': 10, 'листопада': 11, 'грудня': 12
+    }
+
+    # 1) Try word-based date first: "13 лютого", "5 січня" etc.
+    match = re.search(r'(\d{1,2})\s+([\w\u0400-\u04FF]+)', text)
+    if match:
+        day = int(match.group(1))
+        month_str = match.group(2).lower().strip().strip('.,')
+        month = months_map.get(month_str)
+        if month:
+            tz = datetime.timezone(datetime.timedelta(hours=timezone_offset))
+            year = datetime.datetime.now(tz).year
+            try:
+                datetime.date(year, month, day)
+                return f"{year}-{month:02d}-{day:02d}"
+            except ValueError:
+                pass
+
+    # 2) Try numeric date: "13.02.2026", "13/02", but NOT queue numbers like "1.1:"
+    num_match = re.search(r'(?<!\d)(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s*(?!\s*:)', text)
     if num_match:
         day = int(num_match.group(1))
         month = int(num_match.group(2))
@@ -107,19 +137,7 @@ def parse_date(text):
             return f"{year:04d}-{month:02d}-{day:02d}"
         except ValueError:
             pass
-    match = re.search(r'(\d{1,2})\s+([\w\u0400-\u04FF]+)', text)
-    if match:
-        day = int(match.group(1))
-        month_str = match.group(2).lower().strip().strip('.,')
-        months = {
-            'січня': 1, 'лютого': 2, 'березня': 3, 'квітня': 4, 'травня': 5, 'червня': 6,
-            'липня': 7, 'серпня': 8, 'вересня': 9, 'жовтня': 10, 'листопада': 11, 'грудня': 12
-        }
-        month = months.get(month_str)
-        if month:
-            tz = datetime.timezone(datetime.timedelta(hours=timezone_offset))
-            year = datetime.datetime.now(tz).year
-            return f"{year}-{month:02d}-{day:02d}"
+
     return None
 
 def normalize_dashes(text):
@@ -127,18 +145,23 @@ def normalize_dashes(text):
     text = text.replace('\u2013', '-') 
     text = text.replace('\u2014', '-') 
     text = text.replace('\u2010', '-') 
+    text = text.replace('\u2212', '-') 
+    text = text.replace('\u2011', '-') 
     text = text.replace('\u00A0', ' ') 
+    text = text.replace('\u202F', ' ') 
+    text = text.replace('\u2009', ' ') 
     return text
 
 def parse_schedule(text):
     """Parse power outage schedule from message text with support for multiple formats"""
     text = normalize_dashes(text)
+    text = re.sub(r'(\d{1,2})\s*[\.:]\s*(\d{2})', r'\1:\2', text)
     lines = text.split('\n')
     schedule = {}
     current_queue = None
 
     def parse_period(period):
-        time_match = re.search(r'(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})', period)
+        time_match = re.search(r'(\d{1,2})\s*:\s*(\d{2})\s*-\s*(\d{1,2})\s*:\s*(\d{2})', period)
         if time_match:
             start_h, start_m, end_h, end_m = map(int, time_match.groups())
             return f"{start_h:02d}:{start_m:02d}-{end_h:02d}:{end_m:02d}"
@@ -150,6 +173,14 @@ def parse_schedule(text):
 
     def parse_hour_periods(times_str):
         periods = []
+        matches = re.findall(r'\d{1,2}\s*:\s*\d{2}\s*-\s*\d{1,2}\s*:\s*\d{2}', times_str)
+        if matches:
+            for part in matches:
+                parsed = parse_period(part)
+                if parsed:
+                    periods.append(parsed)
+            return periods
+
         for part in re.split(r'[;,]', times_str):
             part = part.strip()
             if not part:
@@ -165,6 +196,7 @@ def parse_schedule(text):
             continue
         
         line = re.sub(r'[🔹❗✅➡️💡⚠️🗓📍⚡🏆⌛️]+', '', line).strip()
+        line = re.sub(r'^[\s\-\*\u2022\u25CF\u25CB\u25A0\u25AA\u2219\u2043\u2023•▪▫·●○■□]+', '', line).strip()
 
         queue_header = re.search(r'(?:черга|група)\s*\[?\s*([0-6](?:\.[12])?)\s*\]?', line, re.IGNORECASE)
         if queue_header:
@@ -201,6 +233,21 @@ def parse_schedule(text):
             if valid_periods and queue:
                 schedule[queue] = valid_periods
     
+    if schedule:
+        return schedule
+
+    # Fallback: parse inline queue entries even if line breaks/bullets are inconsistent
+    inline_pattern = re.compile(
+        r'([0-6](?:\.[12])?)\s*[:\-]?\s*'
+        r'((?:\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})(?:\s*[,;]\s*\d{1,2}[.:]\d{2}\s*-\s*\d{1,2}[.:]\d{2})*)'
+    )
+    for match in inline_pattern.finditer(text):
+        queue = match.group(1).strip()
+        times_str = match.group(2).strip()
+        periods = parse_hour_periods(times_str)
+        if periods:
+            schedule[queue] = periods
+
     return schedule if schedule else {}
 
 def time_to_minutes(t):
@@ -298,16 +345,40 @@ async def fetch_messages_for_channel(client, channel, today, tomorrow):
         async for message in client.iter_messages(entity, limit=limit_messages):
             messages_checked += 1
             
-            if is_power_outage_schedule(message.text):
+            # Debug: log all messages for channel 1
+            if channel_id == 1:
+                msg_text = (message.text or message.raw_text or '')
+                preview = msg_text.replace('\n', ' ')[:100]
+                print(f"  [DEBUG ch1] msg#{message.id}: {preview}")
+            
+            msg_text = message.text or message.raw_text or ''
+            if is_power_outage_schedule(msg_text) or has_queue_schedule(msg_text):
                 schedule_messages_found += 1
-                schedule_date = parse_date(message.text)
+                schedule_date = parse_date(msg_text)
                 
                 if schedule_date:
-                    parsed = parse_schedule(message.text)
+                    parsed = parse_schedule(msg_text)
+                    
+                    # Detailed debug for channel 1
+                    if channel_id == 1:
+                        print(f"\n{'='*60}")
+                        print(f"[DEBUG ch1] msg#{message.id} date={schedule_date}")
+                        print(f"[DEBUG ch1] is_schedule={is_power_outage_schedule(msg_text)} has_queue={has_queue_schedule(msg_text)}")
+                        print(f"[DEBUG ch1] parsed result: {parsed}")
+                        # Show first 5 lines of raw text with repr to see hidden chars
+                        raw_lines = msg_text.split('\n')[:8]
+                        for i, rl in enumerate(raw_lines):
+                            print(f"[DEBUG ch1] line[{i}] repr: {repr(rl[:120])}")
+                        print(f"{'='*60}\n")
+                    
+                    if not parsed:
+                        preview = normalize_dashes(msg_text).replace('\n', ' ')
+                        print(f"[WARN] Channel {channel_id}: schedule parsed empty, skipping msg#{message.id}. Preview: {preview[:160]}")
+                        continue
 
                     tz = datetime.timezone(datetime.timedelta(hours=timezone_offset))
                     update_time = (message.date + datetime.timedelta(hours=timezone_offset)).strftime("%H:%M:%S")
-                    emergency_flag = is_emergency_outage_active(message.text)
+                    emergency_flag = is_emergency_outage_active(msg_text)
                     
                     all_found_dates.append(schedule_date)
                     
