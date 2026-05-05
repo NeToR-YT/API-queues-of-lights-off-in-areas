@@ -1,0 +1,128 @@
+{
+  "api_id": REDACTED,
+  "api_hash": "REDACTED",
+  "session_path": "session_name",
+  "channels": [
+    {
+      "id": 1,
+      "name": "Черкаси",
+      "username": "pat_cherkasyoblenergo"
+    },
+    {
+      "id": 2,
+      "name": "Запоріжжя",
+      "username": "Zaporizhzhyaoblenergo_news"
+    },
+    {
+      "id": 3,
+      "name": "Миколаїв",
+      "username": "mk_energy_ua"
+    },
+    {
+      "id": 4,
+      "name": "Харків",
+      "username": "kharkivenergy"
+    },
+    {
+      "id": 5,
+      "name": "Кіровоград ",
+      "username": "kirovohradska_bezsvitla"
+    },
+    {
+      "id": 6,
+      "name": "Київ +",
+      "username": "kyiv_bezsvitla"
+    },
+    {
+      "id": 7,
+      "name": "Вінницька область +",
+      "username": ""
+    },
+    {
+      "id": 8,
+      "name": "Волинська область ++-",
+      "username": ""
+    },
+    {
+      "id": 9,
+      "name": "Дніпропетровська область +",
+      "username": ""
+    },
+    {
+      "id": 10,
+      "name": "Житомирська область +",
+      "username": ""
+    },
+    {
+      "id": 11,
+      "name": "Закарпатська область +",
+      "username": ""
+    },
+    {
+      "id": 12,
+      "name": "Івано-Франківська область +",
+      "username": ""
+    },
+    {
+      "id": 13,
+      "name": "Київська область +",
+      "username": ""
+    },
+    {
+      "id": 14,
+      "name": "Львівська область +",
+      "username": ""
+    },
+    {
+      "id": 15,
+      "name": "Одеська область +",
+      "username": ""
+    },
+    {
+      "id": 16,
+      "name": "Полтавська область +",
+      "username": ""
+    },
+    {
+      "id": 17,
+      "name": "Рівненська область -",
+      "username": ""
+    },
+    {
+      "id": 18,
+      "name": "Сумська область +",
+      "username": ""
+    },
+    {
+      "id": 19,
+      "name": "Тернопільська область +",
+      "username": ""
+    },
+    {
+      "id": 20,
+      "name": "Херсонська область ---",
+      "username": ""
+    },
+    {
+      "id": 21,
+      "name": "Хмельницька область +",
+      "username": ""
+    },
+    {
+      "id": 22,
+      "name": "Чернівецька область +",
+      "username": ""
+    },
+    {
+      "id": 23,
+      "name": "Чернігівська область +", 
+      "username": ""
+    }
+  ],
+  "batch_parser": {
+    "batch_size": 2,
+    "batch_delay": 5,
+    "limit_messages": 50
+  },
+  "timezone_offset": 2
+}
