@@ -38,5 +38,5 @@
     "batch_delay": 5,
     "limit_messages": 50
   },
-  "timezone_offset": 2
+  "timezone_offset": 3
 }

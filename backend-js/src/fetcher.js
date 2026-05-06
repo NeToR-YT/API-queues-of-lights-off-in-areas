@@ -22,7 +22,9 @@ function formatDate(date) {
 }
 
 function formatTime(date, timezoneOffsetHours) {
-  const adjusted = new Date(date.getTime() + timezoneOffsetHours * 60 * 60 * 1000);
+  // GramJS message.date is Unix seconds (number), not a Date object
+  const ms = typeof date === "number" ? date * 1000 : date.getTime();
+  const adjusted = new Date(ms + timezoneOffsetHours * 60 * 60 * 1000);
   const hours = String(adjusted.getUTCHours()).padStart(2, "0");
   const minutes = String(adjusted.getUTCMinutes()).padStart(2, "0");
   const seconds = String(adjusted.getUTCSeconds()).padStart(2, "0");
@@ -42,7 +44,9 @@ async function createClient(config) {
   const sessionString = config.session_string || "";
   const session = new StringSession(sessionString);
   const client = new TelegramClient(session, config.api_id, config.api_hash, {
-    connectionRetries: 5
+    connectionRetries: 5,
+    autoReconnect: false,
+    useWSS: false
   });
 
   const rl = readline.createInterface({
@@ -130,11 +134,13 @@ async function fetchMessagesForChannel(client, channel, today, tomorrow, timezon
       scheduleMessagesFound += 1;
       const scheduleDate = parseDate(msgText, timezoneOffset);
       if (!scheduleDate) {
+        console.log(`[DBG] Channel ${channelId}: no date found in: ${msgText.slice(0, 120).replace(/\n/g, " ")}`);
         continue;
       }
 
       const parsed = parseSchedule(msgText);
       if (!parsed || Object.keys(parsed).length === 0) {
+        console.log(`[DBG] Channel ${channelId}: date=${scheduleDate} but schedule empty`);
         continue;
       }
 
@@ -336,7 +342,7 @@ export async function fetchAllChannels() {
           if (todayIdx === -1) {
             todayData.push({
               channel_id: channelId,
-              schedule_date: today,
+              schedule_date: fallbackResult.schedule_date,
               schedule_time: fallbackResult.schedule_time,
               schedule: fallbackResult.schedule,
               emergency_outages: fallbackResult.emergency_outages
@@ -397,6 +403,7 @@ export async function fetchAllChannels() {
     return false;
   } finally {
     if (client) {
+      try { client._log?.setLevel("none"); } catch (_) {}
       await client.disconnect();
     }
   }
