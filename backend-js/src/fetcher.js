@@ -1,4 +1,5 @@
 import readline from "readline";
+import { fileURLToPath } from "url";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import {
@@ -6,17 +7,12 @@ import {
   isEmergencyOutageActive,
   isPowerOutageSchedule,
   mergeIntervals,
+  nowWithOffset,
   parseDate,
   parseSchedule
 } from "./parser.js";
 import { connectDb, closeDb } from "./db.js";
 import { loadConfig, saveConfig } from "./config.js";
-
-function nowWithOffset(timezoneOffsetHours) {
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-  return new Date(utcMs + timezoneOffsetHours * 60 * 60 * 1000);
-}
 
 function formatDate(date) {
   const year = date.getUTCFullYear();
@@ -231,8 +227,8 @@ export async function fetchAllChannels() {
     const today = formatDate(nowWithOffset(timezoneOffset));
     const tomorrow = formatDate(new Date(nowWithOffset(timezoneOffset).getTime() + 24 * 60 * 60 * 1000));
 
-    let todayData = await todayCollection.find({}).toArray();
-    let tomorrowData = await tomorrowCollection.find({}).toArray();
+    let todayData = await todayCollection.find({}, { projection: { _id: 0 } }).toArray();
+    let tomorrowData = await tomorrowCollection.find({}, { projection: { _id: 0 } }).toArray();
     if (!Array.isArray(todayData)) {
       todayData = [];
     }
@@ -243,7 +239,7 @@ export async function fetchAllChannels() {
     const allHistory = {};
     for (const channel of channels) {
       const channelId = channel.id;
-      const history = await historyCollection.find({ channel_id: channelId }).toArray();
+      const history = await historyCollection.find({ channel_id: channelId }, { projection: { _id: 0 } }).toArray();
       allHistory[channelId] = Array.isArray(history) ? history : [];
     }
 
@@ -403,13 +399,16 @@ export async function fetchAllChannels() {
     if (client) {
       await client.disconnect();
     }
-    await closeDb();
   }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  fetchAllChannels().catch((error) => {
-    console.log(`Fatal error: ${error.message}`);
-    process.exit(1);
-  });
+  fetchAllChannels()
+    .catch((error) => {
+      console.log(`Fatal error: ${error.message}`);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await closeDb();
+    });
 }

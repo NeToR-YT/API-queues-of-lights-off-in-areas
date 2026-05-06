@@ -92,7 +92,7 @@ export function isEmergencyOutageActive(text) {
   return false;
 }
 
-function nowWithOffset(timezoneOffsetHours) {
+export function nowWithOffset(timezoneOffsetHours) {
   const now = new Date();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
   return new Date(utcMs + timezoneOffsetHours * 60 * 60 * 1000);

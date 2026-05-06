@@ -2,14 +2,16 @@ import express from "express";
 import path from "path";
 
 function formatDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
+const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
 async function getCityName(db, channelId) {
-  const found = await db.collection("cities").findOne({ id: channelId });
+  const found = await db.collection("cities").findOne({ id: channelId }, { projection: { _id: 0 } });
   return found ? found.name : "Невідоме місто";
 }
 
@@ -20,10 +22,10 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
     res.sendFile(path.join(baseDir, "templates", "index.html"));
   });
 
-  router.get("/api/cities", async (req, res) => {
-    const cities = await db.collection("cities").find({}).sort({ id: 1 }).toArray();
+  router.get("/api/cities", wrap(async (req, res) => {
+    const cities = await db.collection("cities").find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray();
     res.json({ cities });
-  });
+  }));
 
   router.get("/api/status", (req, res) => {
     const status = getStatus();
@@ -51,7 +53,7 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
     });
   });
 
-  router.get("/api/schedules", async (req, res) => {
+  router.get("/api/schedules", wrap(async (req, res) => {
     const channelId = Number(req.query.channel_id ?? req.query.city_id);
     const date = req.query.date;
     const queue = req.query.queue;
@@ -62,7 +64,7 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
 
     const found = await db
       .collection("schedules_history")
-      .findOne({ channel_id: channelId, schedule_date: date });
+      .findOne({ channel_id: channelId, schedule_date: date }, { projection: { _id: 0 } });
 
     if (!found) {
       return res.status(404).json({ error: `Розклад на ${date} не знайдено` });
@@ -86,9 +88,9 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
       schedule: filteredSchedule,
       emergency_outages: found.emergency_outages || false
     });
-  });
+  }));
 
-  router.get("/api/schedules/today", async (req, res) => {
+  router.get("/api/schedules/today", wrap(async (req, res) => {
     const channelId = Number(req.query.channel_id ?? req.query.city_id);
     const queue = req.query.queue;
 
@@ -96,7 +98,7 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
       return res.status(400).json({ error: "channel_id параметр обов'язковий" });
     }
 
-    const item = await db.collection("schedules_today").findOne({ channel_id: channelId });
+    const item = await db.collection("schedules_today").findOne({ channel_id: channelId }, { projection: { _id: 0 } });
 
     if (!item) {
       return res.status(404).json({ error: "Розклад на сьогодні не знайдено" });
@@ -120,9 +122,9 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
       schedule: filteredSchedule,
       emergency_outages: item.emergency_outages || false
     });
-  });
+  }));
 
-  router.get("/api/schedules/tomorrow", async (req, res) => {
+  router.get("/api/schedules/tomorrow", wrap(async (req, res) => {
     const channelId = Number(req.query.channel_id ?? req.query.city_id);
     const queue = req.query.queue;
 
@@ -130,7 +132,7 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
       return res.status(400).json({ error: "channel_id параметр обов'язковий" });
     }
 
-    const item = await db.collection("schedules_tomorrow").findOne({ channel_id: channelId });
+    const item = await db.collection("schedules_tomorrow").findOne({ channel_id: channelId }, { projection: { _id: 0 } });
 
     if (!item) {
       return res.status(404).json({ error: "Розклад на завтра не знайдено" });
@@ -155,7 +157,7 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
       schedule: filteredSchedule,
       emergency_outages: item.emergency_outages || false
     });
-  });
+  }));
 
   return router;
 }
