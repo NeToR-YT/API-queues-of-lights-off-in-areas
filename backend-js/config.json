@@ -1,0 +1,42 @@
+{
+  "api_id": 32787200,
+  "api_hash": "0462187106151415754ac85f335c42e2",
+  "session_string": "1AgAOMTQ5LjE1NC4xNjcuNTABu7a+9n7N/dfeu+dRsk2FOEFEDzM7ITuwpPhQr51R01s2DnibaRqBrqlWOqCo2K7EtaSVTKNT+7IG3o2WPQwf02HHpSlKa5KJUxgXb0XadCUXhqGWPV/WLzperBIVQ9yaJy2R2NY5HVpflnfTB+TejHvanQ8AGk15dcZvV2nvdvdA/54yDrTO8MniT2To231WXkrf+C4H5/GVY0ckpFQp5126abc6YpMRm+McnE+JrMYprdvYsDA145jr7koJXXN5nn2S6negu+Vk3tg2w4Y8L/9kLezco8f6RTIaxVDOdVhsYANv984cl2aqdosCLXgNoAf+Lov8qqb0OqNh9YS5PvQ=",
+  "mongodb_uri": "mongodb://127.0.0.1:27017",
+  "mongodb_db": "queues_of_lights",
+  "mongodb_data_path": "./db",
+  "mongodb_port": 27017,
+  "channels": [
+    {
+      "id": 1,
+      "name": "Черкаси",
+      "username": "pat_cherkasyoblenergo"
+    },
+    {
+      "id": 2,
+      "name": "Запоріжжя",
+      "username": "Zaporizhzhyaoblenergo_news"
+    },
+    {
+      "id": 3,
+      "name": "Миколаїв",
+      "username": "mk_energy_ua"
+    },
+    {
+      "id": 4,
+      "name": "Харків",
+      "username": "kharkivenergy"
+    },
+    {
+      "id": 5,
+      "name": "Кіровоград",
+      "username": "svitloff"
+    }
+  ],
+  "batch_parser": {
+    "batch_size": 2,
+    "batch_delay": 5,
+    "limit_messages": 50
+  },
+  "timezone_offset": 2
+}
