@@ -15,7 +15,7 @@ async function getCityName(db, channelId) {
   return found ? found.name : "Невідоме місто";
 }
 
-export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
+export function createRoutes({ baseDir, db, getStatus, triggerUpdate, updateIntervalMinutes }) {
   const router = express.Router();
 
   router.get("/", (req, res) => {
@@ -32,7 +32,7 @@ export function createRoutes({ baseDir, db, getStatus, triggerUpdate }) {
     res.json({
       last_update: status.lastUpdate,
       parsing_in_progress: status.updateInProgress,
-      auto_update_interval_minutes: 15
+      auto_update_interval_minutes: updateIntervalMinutes
     });
   });
 
