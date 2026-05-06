@@ -113,7 +113,7 @@ npm run start:all
 }
 ```
 
-Сервер запуститься на `http://127.0.0.1:5001`.
+Сервер запуститься на `http://127.0.0.1:5000`.
 
 ### 4. Перший запуск та авторизація Telegram
 
@@ -148,7 +148,7 @@ npm run migrate:python C:\path\to\backend   # або вкажіть шлях
 
 ## API Маршрути
 
-Базова URL: `http://localhost:5001`
+Базова URL: `http://localhost:5000`
 
 ---
 
@@ -175,7 +175,7 @@ npm run migrate:python C:\path\to\backend   # або вкажіть шлях
 Запустити ручне оновлення. Повертає одразу, парсер працює у фоні.
 
 ```bash
-curl -X POST http://localhost:5001/api/update
+curl -X POST http://localhost:5000/api/update
 ```
 
 ```json
