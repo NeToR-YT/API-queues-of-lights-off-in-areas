@@ -103,7 +103,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-const port = process.env.PORT ? Number(process.env.PORT) : 5001;
+const port = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(port, () => {
   console.log(`API listening on port ${port}`);
 });
