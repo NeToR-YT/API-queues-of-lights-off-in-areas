@@ -3,7 +3,7 @@ backend-js/node_modules/
 backend-js/schedule_today.json
 backend-js/schedule_tomorrow.json
 backend-js/schedule_history_*.json
+backend-js/config.json
 backend-js/.env
 backend-js/.DS_Store
 backend-js/*.log
-.venv/
