@@ -2,7 +2,7 @@ import express from "express";
 import cron from "node-cron";
 import { fetchAllChannels } from "./fetcher.js";
 import { createRoutes } from "./routes.js";
-import { baseDir } from "./config.js";
+import { baseDir, loadConfig } from "./config.js";
 import { connectDb, closeDb } from "./db.js";
 import fsp from "fs/promises";
 import path from "path";
@@ -62,11 +62,15 @@ function triggerUpdate() {
   return true;
 }
 
-cron.schedule("*/15 * * * *", () => {
+const appConfig = await loadConfig();
+const updateIntervalMinutes = appConfig.update_interval_minutes ?? 15;
+const cronExpression = `*/${updateIntervalMinutes} * * * *`;
+cron.schedule(cronExpression, () => {
   if (!updateInProgress) {
     triggerUpdate();
   }
 });
+console.log(`Auto-update scheduled every ${updateIntervalMinutes} minutes`);
 
 async function seedCities(db) {
   const citiesCollection = db.collection("cities");
@@ -93,7 +97,8 @@ app.use(
     baseDir,
     db,
     getStatus: () => ({ lastUpdate, updateInProgress }),
-    triggerUpdate
+    triggerUpdate,
+    updateIntervalMinutes
   })
 );
 

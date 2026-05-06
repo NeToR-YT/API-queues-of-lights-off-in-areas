@@ -34,9 +34,10 @@
     }
   ],
   "batch_parser": {
+    "update_interval_minutes": 15,
     "batch_size": 2,
     "batch_delay": 5,
-    "limit_messages": 50
+    "limit_messages": 100
   },
   "timezone_offset": 3
 }
