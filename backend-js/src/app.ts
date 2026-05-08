@@ -1,23 +1,25 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cron from "node-cron";
+import fsp from "fs/promises";
+import path from "path";
+import type { Db } from "mongodb";
 import { fetchAllChannels } from "./fetcher.js";
 import { createRoutes } from "./routes.js";
 import { baseDir, loadConfig } from "./config.js";
 import { connectDb, closeDb } from "./db.js";
-import fsp from "fs/promises";
-import path from "path";
+import type { UpdateStatus, City } from "./types.js";
 
 const app = express();
 app.use(express.json());
 
-let lastUpdate = {
+let lastUpdate: UpdateStatus = {
   timestamp: null,
   status: "pending",
-  message: "Чекання першого оновлення..."
+  message: "Чекання першого оновлення...",
 };
 let updateInProgress = false;
 
-async function updateDataTask() {
+async function updateDataTask(): Promise<void> {
   if (updateInProgress) {
     console.log("Оновлення вже в процесі...");
     return;
@@ -30,61 +32,54 @@ async function updateDataTask() {
     lastUpdate = {
       timestamp: new Date().toISOString(),
       status: success ? "success" : "error",
-      message: success ? "Дані оновлено успішно!" : "Помилка оновлення"
+      message: success ? "Дані оновлено успішно!" : "Помилка оновлення",
     };
-    if (success) {
-      console.log("✓ Дані оновлено успішно!");
-    } else {
-      console.log("✗ Помилка оновлення");
-    }
+    console.log(success ? "✓ Дані оновлено успішно!" : "✗ Помилка оновлення");
   } catch (error) {
+    const msg = (error as Error).message;
     lastUpdate = {
       timestamp: new Date().toISOString(),
       status: "error",
-      message: `Помилка: ${error.message.slice(0, 200)}`
+      message: `Помилка: ${msg.slice(0, 200)}`,
     };
-    console.log(`✗ Помилка: ${error.message}`);
+    console.log(`✗ Помилка: ${msg}`);
   } finally {
     updateInProgress = false;
   }
 }
 
-function triggerUpdate() {
-  if (updateInProgress) {
-    return false;
-  }
+function triggerUpdate(): boolean {
+  if (updateInProgress) return false;
   lastUpdate = {
     timestamp: new Date().toISOString(),
     status: "running",
-    message: "Оновлення запущено"
+    message: "Оновлення запущено",
   };
   void updateDataTask();
   return true;
 }
 
-const appConfig = await loadConfig();
-const updateIntervalMinutes = appConfig.update_interval_minutes ?? 15;
-const cronExpression = `*/${updateIntervalMinutes} * * * *`;
-cron.schedule(cronExpression, () => {
-  if (!updateInProgress) {
-    triggerUpdate();
-  }
-});
-console.log(`Auto-update scheduled every ${updateIntervalMinutes} minutes`);
-
-async function seedCities(db) {
-  const citiesCollection = db.collection("cities");
+async function seedCities(db: Db): Promise<void> {
+  const citiesCollection = db.collection<City>("cities");
   const count = await citiesCollection.countDocuments();
-  if (count > 0) {
-    return;
-  }
+  if (count > 0) return;
+
   const citiesPath = path.join(baseDir, "cities.json");
   const raw = await fsp.readFile(citiesPath, "utf-8");
-  const data = JSON.parse(raw);
+  const data = JSON.parse(raw) as { cities?: City[] };
   if (Array.isArray(data.cities) && data.cities.length > 0) {
     await citiesCollection.insertMany(data.cities);
   }
 }
+
+const appConfig = await loadConfig();
+const updateIntervalMinutes = appConfig.update_interval_minutes ?? 15;
+const cronExpression = `*/${updateIntervalMinutes} * * * *`;
+
+cron.schedule(cronExpression, () => {
+  if (!updateInProgress) triggerUpdate();
+});
+console.log(`Auto-update scheduled every ${updateIntervalMinutes} minutes`);
 
 const db = await connectDb();
 await seedCities(db);
@@ -98,22 +93,21 @@ app.use(
     db,
     getStatus: () => ({ lastUpdate, updateInProgress }),
     triggerUpdate,
-    updateIntervalMinutes
+    updateIntervalMinutes,
   })
 );
 
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(`[ERROR] ${err.message}`);
   res.status(500).json({ error: "Internal server error" });
 });
 
-const port = process.env.PORT ? Number(process.env.PORT) : 5000;
+const port = process.env["PORT"] ? Number(process.env["PORT"]) : 5000;
 app.listen(port, () => {
   console.log(`API listening on port ${port}`);
 });
 
-const shutdown = async () => {
+const shutdown = async (): Promise<void> => {
   await closeDb();
   process.exit(0);
 };
