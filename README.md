@@ -19,18 +19,21 @@
 ```
 ├── backend-js/
 │   ├── src/
-│   │   ├── app.js              # Express API сервер + планувальник
-│   │   ├── fetcher.js          # Telegram парсер з batch-обробкою
-│   │   ├── parser.js           # Функції парсингу дат, черг і проміжків
-│   │   ├── routes.js           # API маршрути
-│   │   ├── db.js               # MongoDB підключення та індекси
-│   │   ├── config.js           # Завантаження конфігурації
-│   │   ├── start-all.js        # Запуск MongoDB + API разом
-│   │   └── migrate-from-python.js  # Міграція даних зі старих JSON файлів
+│   │   ├── types.ts            # Спільні TypeScript інтерфейси
+│   │   ├── app.ts              # Express API сервер + планувальник
+│   │   ├── fetcher.ts          # Telegram парсер з batch-обробкою
+│   │   ├── parser.ts           # Функції парсингу дат, черг і проміжків
+│   │   ├── routes.ts           # API маршрути
+│   │   ├── db.ts               # MongoDB підключення (singleton)
+│   │   ├── config.ts           # Завантаження конфігурації
+│   │   ├── start-all.ts        # Запуск MongoDB + API разом
+│   │   └── migrate-from-python.ts  # Міграція даних зі старих JSON файлів
+│   ├── dist/                   # Скомпільований JS (після npm run build)
 │   ├── templates/
 │   │   └── index.html          # Тестовий фронтенд
 │   ├── cities.json             # Список міст (використовується для seed)
-│   ├── config.json             # Конфігурація (створити з config.example.json)
+│   ├── config.json             # Конфігурація (не в git)
+│   ├── tsconfig.json
 │   └── package.json
 └── README.md
 ```
@@ -62,9 +65,10 @@ npm install
   "batch_parser": {
     "batch_size": 2,
     "batch_delay": 5,
-    "limit_messages": 50
+    "limit_messages": 200
   },
-  "timezone_offset": 2,
+  "timezone_offset": 3,
+  "update_interval_minutes": 15,
   "mongodb_uri": "mongodb://127.0.0.1:27017",
   "mongodb_db": "queues"
 }
@@ -79,7 +83,8 @@ npm install
 | `batch_size` | Кількість каналів в одній пачці |
 | `batch_delay` | Пауза між пачками (секунди) |
 | `limit_messages` | Максимальна кількість повідомлень для перевірки на канал |
-| `timezone_offset` | Часовий пояс (2 для UTC+2, Україна) |
+| `timezone_offset` | Часовий пояс (3 для UTC+3, Україна) |
+| `update_interval_minutes` | Інтервал автоматичного оновлення в хвилинах (за замовч. 15) |
 | `mongodb_uri` | URI підключення до MongoDB |
 | `mongodb_db` | Назва бази даних |
 
@@ -130,10 +135,12 @@ Password (if enabled): ****
 ## Команди
 
 ```powershell
-npm start           # запустити тільки API (MongoDB має бути вже запущений)
-npm run start:all   # запустити MongoDB + API разом
-npm run fetch       # запустити парсер вручну (без API)
-npm run start:db    # запустити тільки MongoDB
+npm start                      # запустити API (MongoDB має бути вже запущений)
+npm run start:all              # запустити MongoDB + API разом
+npm run fetch                  # запустити парсер вручну (без API)
+npm run start:db               # запустити тільки MongoDB
+npm run build                  # скомпілювати TypeScript → dist/
+npm run start:prod             # запустити скомпільований dist/app.js
 npm run migrate:python [шлях]  # мігрувати дані зі старих JSON файлів
 ```
 
@@ -371,6 +378,11 @@ GET /api/schedules?channel_id=1&date=2026-05-05&queue=1.1
 - **node-cron** — планувальник автоматичних оновлень
 - **telegram** (GramJS) — асинхронний Telegram MTProto клієнт
 - **mongodb** — драйвер для MongoDB
+
+**devDependencies:**
+- **typescript** — компілятор TypeScript
+- **tsx** — запуск `.ts` файлів без компіляції (для розробки)
+- **@types/node**, **@types/express**, **@types/node-cron** — типи
 
 ## Контакт
 
