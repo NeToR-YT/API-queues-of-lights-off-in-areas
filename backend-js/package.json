@@ -14,12 +14,14 @@
   },
   "dependencies": {
     "big-integer": "^1.6.0",
+    "cors": "^2.8.6",
     "express": "^4.18.0",
     "mongodb": "^6.5.0",
     "node-cron": "^3.0.0",
     "telegram": "^2.26.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.2",
     "@types/node-cron": "^3.0.11",

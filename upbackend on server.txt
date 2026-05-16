@@ -1,67 +1,60 @@
-Розгортання на Armbian сервері
+Розгортання на Armbian сервері (Docker)
+
+═══════════════════════════════════════════════
 0. Підключення до сервера
+═══════════════════════════════════════════════
 
 ssh user@IP_ВАШОГО_СЕРВЕРА
-1. Оновлення системи
 
-sudo apt update && sudo apt upgrade -y
-2. Встановлення Node.js 18+
-
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
-node --version  # має показати v18.x.x
-3. Встановлення MongoDB
-Важливо: Armbian 64-bit (aarch64) підтримується офіційно. Якщо у вас 32-bit — перейдіть до альтернативи нижче.
-
-Перевірте архітектуру:
-
+═══════════════════════════════════════════════
+1. Перевірка архітектури
+═══════════════════════════════════════════════
 
 uname -m
-# aarch64 = 64-bit ✓
-# armv7l  = 32-bit → читайте нижче
-64-bit (aarch64):
+# aarch64 = 64-bit ✓ (Docker + MongoDB повністю підтримуються)
+# armv7l  = 32-bit → MongoDB не підтримується, використайте MongoDB Atlas
 
+═══════════════════════════════════════════════
+2. Оновлення системи
+═══════════════════════════════════════════════
 
-curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+sudo apt update && sudo apt upgrade -y
 
-echo "deb [ arch=arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+═══════════════════════════════════════════════
+3. Встановлення Docker
+═══════════════════════════════════════════════
 
-sudo apt update && sudo apt install -y mongodb-org
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
 
-sudo systemctl enable mongod
-sudo systemctl start mongod
-32-bit (armv7l) — альтернатива:
+# ВАЖЛИВО: перелогіньтесь щоб група застосувалась
+exit
+# підключіться знову: ssh user@IP_ВАШОГО_СЕРВЕРА
 
+# Перевірка
+docker --version
+docker compose version
 
-# Старий MongoDB з репозиторію Debian (може бути версія 3.x)
-sudo apt install -y mongodb
-sudo systemctl enable mongodb
-sudo systemctl start mongodb
-Або використайте MongoDB Atlas (хмарна безкоштовна версія) і просто вкажіть URI в config.json.
-
-Перевірка:
-
-
-mongosh --eval "db.runCommand({ connectionStatus: 1 })"
-# або для старого mongo: mongo --eval "db.runCommand({ connectionStatus: 1 })"
+═══════════════════════════════════════════════
 4. Встановлення Git і клонування репозиторію
+═══════════════════════════════════════════════
 
 sudo apt install -y git
 
 git clone https://github.com/NeToR-YT/API-queues-of-lights-off-in-areas.git
-cd API-queues-of-lights-off-in-areas/backend-js
-5. Встановлення залежностей
+cd API-queues-of-lights-off-in-areas
 
-npm install
-6. Конфігурація
+═══════════════════════════════════════════════
+5. Конфігурація
+═══════════════════════════════════════════════
 
-nano config.json
-Заповніть файл:
+nano backend-js/config.json
 
+Вставте і заповніть:
 
 {
-  "api_id": "ваш_api_id",
-  "api_hash": "ваш_api_hash",
+  "api_id": ВАШ_API_ID,
+  "api_hash": "ВАШ_API_HASH",
   "session_string": "",
   "channels": [
     { "id": 1, "name": "Черкаси",    "username": "pat_cherkasyoblenergo" },
@@ -76,78 +69,111 @@ nano config.json
   },
   "timezone_offset": 3,
   "update_interval_minutes": 15,
-  "mongodb_uri": "mongodb://127.0.0.1:27017",
+  "cors_origins": ["http://localhost:3000", "http://localhost:5173"],
+  "mongodb_uri": "mongodb://mongo:27017",
   "mongodb_db": "queues"
 }
+
 Зберегти: Ctrl+O → Enter → Ctrl+X
 
-7. Перший запуск (авторизація Telegram)
-Перший раз треба запустити інтерактивно щоб ввести код:
+ВАЖЛИВО: mongodb_uri має бути "mongodb://mongo:27017" (не 127.0.0.1)
+         "mongo" — це назва сервісу в docker-compose
 
+═══════════════════════════════════════════════
+6. Збірка Docker образу
+═══════════════════════════════════════════════
 
-npm start
+docker compose build backend
+
+═══════════════════════════════════════════════
+7. Перший запуск — авторизація Telegram
+═══════════════════════════════════════════════
+
+Запустіть MongoDB і бекенд інтерактивно:
+
+docker compose up -d mongo
+docker compose run --rm -it backend node dist/app.js
+
 У терміналі з'явиться:
 
+  Phone number: +380XXXXXXXXX
+  Code: 12345
+  Password (if enabled): ****
 
-Phone number: +380XXXXXXXXX
-Code: 12345
-Після успішного входу session_string автоматично збережеться в config.json. Зупиніть процес Ctrl+C.
+Після "API listening on port 5000" — сесія збережена.
+Зупиніть: Ctrl+C
 
-8. Збірка для продакшену
+Перевірте що session_string з'явився в config.json:
 
-npm run build
-Це скомпілює TypeScript у папку dist/. Далі systemd запускатиме вже скомпільований JS.
+cat backend-js/config.json | grep session_string
 
-9. Налаштування автозапуску через systemd
+═══════════════════════════════════════════════
+8. Запуск у фоні
+═══════════════════════════════════════════════
+
+docker compose up -d backend mongo
+
+Перевірка:
+
+docker compose ps
+docker compose logs -f backend
+
+Перевірка API:
+
+curl http://localhost:5000/api/status
+curl http://localhost:5000/api/cities
+
+═══════════════════════════════════════════════
+9. Автозапуск після перезавантаження сервера
+═══════════════════════════════════════════════
 
 sudo nano /etc/systemd/system/gpv-api.service
 
+Вставте:
+
 [Unit]
-Description=GPV API
-After=network.target mongod.service
-Wants=mongod.service
+Description=GPV API (Docker Compose)
+After=docker.service
+Requires=docker.service
 
 [Service]
 Type=simple
 User=YOUR_USER
-WorkingDirectory=/home/YOUR_USER/API-queues-of-lights-off-in-areas/backend-js
-ExecStart=/usr/bin/node dist/app.js
+WorkingDirectory=/home/YOUR_USER/API-queues-of-lights-off-in-areas
+ExecStart=docker compose up backend mongo
+ExecStop=docker compose stop backend mongo
 Restart=on-failure
 RestartSec=10
-Environment=PORT=5000
 
 [Install]
 WantedBy=multi-user.target
-Замініть YOUR_USER на вашого користувача (перевірити: whoami)
 
+Замініть YOUR_USER на вашого користувача (whoami)
 
 sudo systemctl daemon-reload
 sudo systemctl enable gpv-api
 sudo systemctl start gpv-api
-Перевірка:
 
+═══════════════════════════════════════════════
+Корисні команди
+═══════════════════════════════════════════════
 
-sudo systemctl status gpv-api
-# або переглянути логи:
-sudo journalctl -u gpv-api -f
-10. Перевірка роботи API
+# Логи в реальному часі
+docker compose logs -f backend
 
-curl http://localhost:5000/api/status
-curl http://localhost:5000/api/cities
-Корисні команди після деплою
+# Перезапустити бекенд
+docker compose restart backend
 
-# Перезапустити після змін у коді
-sudo systemctl restart gpv-api
+# Зупинити все
+docker compose stop
 
-# Переглянути логи в реальному часі
-sudo journalctl -u gpv-api -f
-
-# Оновити код з GitHub
-cd ~/API-queues-of-lights-off-in-areas
+# Оновити код з GitHub і перебілдити
 git pull
-cd backend-js && npm install && npm run build
-sudo systemctl restart gpv-api
+docker compose build backend
+docker compose up -d backend
 
 # Ручний запуск парсера
-cd ~/API-queues-of-lights-off-in-areas/backend-js
-npm run fetch
+docker compose exec backend node dist/app.js
+
+# Зайти в контейнер
+docker compose exec backend sh
