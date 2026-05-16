@@ -18,6 +18,7 @@ export interface Config {
   batch_parser: BatchConfig;
   timezone_offset: number;
   update_interval_minutes?: number;
+  cors_origins?: string[];
   mongodb_uri?: string;
   mongodb_db?: string;
   mongodb_bin?: string;
