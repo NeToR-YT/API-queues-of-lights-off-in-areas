@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
 import cron from "node-cron";
 import fsp from "fs/promises";
 import path from "path";
@@ -75,6 +76,14 @@ async function seedCities(db: Db): Promise<void> {
 const appConfig = await loadConfig();
 const updateIntervalMinutes = appConfig.update_interval_minutes ?? 15;
 const cronExpression = `*/${updateIntervalMinutes} * * * *`;
+
+const corsOrigins = appConfig.cors_origins ?? [];
+app.use(
+  cors({
+    origin: corsOrigins.length === 0 ? "*" : corsOrigins,
+    methods: ["GET", "POST"],
+  })
+);
 
 cron.schedule(cronExpression, () => {
   if (!updateInProgress) triggerUpdate();
