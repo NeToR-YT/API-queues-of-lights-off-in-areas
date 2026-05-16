@@ -6,6 +6,7 @@ import path from "path";
 import type { Db } from "mongodb";
 import { fetchAllChannels } from "./fetcher.js";
 import { createRoutes } from "./routes.js";
+import { createStatsRoutes } from "./stats/index.js";
 import { baseDir, loadConfig } from "./config.js";
 import { connectDb, closeDb } from "./db.js";
 import type { UpdateStatus, City } from "./types.js";
@@ -95,6 +96,8 @@ await seedCities(db);
 
 console.log("API стартує... Запуск першого оновлення даних...");
 triggerUpdate();
+
+app.use(createStatsRoutes(db));
 
 app.use(
   createRoutes({
