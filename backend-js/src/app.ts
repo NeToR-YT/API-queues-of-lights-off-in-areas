@@ -97,6 +97,14 @@ await seedCities(db);
 console.log("API стартує... Запуск першого оновлення даних...");
 triggerUpdate();
 
+app.get("/stats-test", (_req, res) => {
+  res.sendFile(path.join(baseDir, "templates", "stats-test.html"));
+});
+
+app.get("/stats", (_req, res) => {
+  res.sendFile(path.join(baseDir, "templates", "stats.html"));
+});
+
 app.use(createStatsRoutes(db));
 
 app.use(
