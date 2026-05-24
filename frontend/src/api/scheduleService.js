@@ -1,121 +1,100 @@
-const FILES = {
-    cities: '/cities.json',
-    today: '/schedule_today.json',
-    tomorrow: '/schedule_tomorrow.json',
-    historyBase: '/schedule_history_'
-};
+const API = '/api';
 
 export const fetchSchedule = async (requestData) => {
     const targetDate = requestData.date;
     const regionId = Number(requestData.region);
+    const requestedGroup = requestData.group;
 
     try {
-        const source = await determineSourceForDate(targetDate, regionId);
+        let doc = null;
 
-        if (!source) {
-            throw new Error(`Дані за ${targetDate} відсутні.`);
+        // Спробуємо today
+        const todayRes = await fetch(`${API}/schedules/today?channel_id=${regionId}`);
+        if (todayRes.ok) {
+            const todayData = await todayRes.json();
+            if (todayData.date === targetDate) {
+                doc = todayData;
+            } else if (targetDate > todayData.date) {
+                // Спробуємо tomorrow
+                const tomorrowRes = await fetch(`${API}/schedules/tomorrow?channel_id=${regionId}`);
+                if (tomorrowRes.ok) {
+                    const tomorrowData = await tomorrowRes.json();
+                    if (tomorrowData.date === targetDate) doc = tomorrowData;
+                }
+            }
         }
 
-        const response = await fetch(source.url);
-        if (!response.ok) throw new Error(`Не вдалося завантажити файл ${source.url}`);
-
-        const dataArray = await response.json();
-        let dayData = null;
-
-        if (Array.isArray(dataArray)) {
-            dayData = dataArray.find(item =>
-                item.schedule_date === targetDate && item.channel_id === regionId
-            );
-        } else {
-            dayData = dataArray[targetDate];
+        // Якщо не today/tomorrow — шукаємо в history
+        if (!doc) {
+            const histRes = await fetch(`${API}/schedules?channel_id=${regionId}&date=${targetDate}`);
+            if (!histRes.ok) throw new Error(`Дані за ${targetDate} відсутні.`);
+            doc = await histRes.json();
         }
 
-        if (!dayData || !dayData.schedule) {
-            throw new Error(`Графік для регіону (ID: ${regionId}) на ${targetDate} не знайдено.`);
-        }
-
-        const schedule = dayData.schedule;
-        const requestedGroup = requestData.group;
-
-        // --- НОВЕ: Отримуємо статус аварійних відключень ---
-        // Якщо поля немає в JSON, вважаємо що false
-        const isEmergency = dayData.emergency_outages || false;
-
-        if (!schedule[requestedGroup]) {
+        if (!doc.schedule[requestedGroup]) {
             throw new Error(`Дані для черги ${requestedGroup} відсутні.`);
         }
 
-        const { timeline, stats } = generateExactTimeline(schedule[requestedGroup]);
+        const { timeline, stats } = generateExactTimeline(doc.schedule[requestedGroup]);
 
         return {
             region: regionId,
             group: requestedGroup,
             day: targetDate,
-            timeline: timeline,
-            stats: stats,
-            emergencyOutages: isEmergency // <--- Передаємо цей прапорець у результат
+            timeline,
+            stats,
+            emergencyOutages: doc.emergency_outages ?? false,
         };
-
     } catch (error) {
-        console.error("Помилка API:", error);
+        console.error('Помилка API:', error);
         throw error;
     }
 };
 
-// --- (Решта файлу без змін) ---
 export const getCalendarInfo = async (regionId) => {
     const info = { todayDate: null, availableDates: new Set() };
-    try {
-        const todayRes = await fetch(FILES.today);
-        if (todayRes.ok) {
-            const data = await todayRes.json();
-            if (Array.isArray(data) && data.length > 0) {
-                info.todayDate = data[0].schedule_date;
-                if (regionId) {
-                    const hasRegion = data.some(d => d.channel_id === Number(regionId));
-                    if (hasRegion) info.availableDates.add(info.todayDate);
-                }
-            }
-        }
-        if (!regionId) return { todayDate: info.todayDate, availableDates: [] };
-        const rId = Number(regionId);
-        try {
-            const tmrRes = await fetch(FILES.tomorrow);
-            if (tmrRes.ok) {
-                const data = await tmrRes.json();
-                if (Array.isArray(data)) {
-                    const hasRegion = data.some(d => d.channel_id === rId);
-                    if (hasRegion && data[0]?.schedule_date) info.availableDates.add(data[0].schedule_date);
-                }
-            }
-        } catch (e) {}
-        try {
-            const historyUrl = `${FILES.historyBase}${rId}.json`;
-            const histRes = await fetch(historyUrl);
-            if (histRes.ok) {
-                const historyData = await histRes.json();
-                if (Array.isArray(historyData)) {
-                    historyData.forEach(item => {
-                        if (item.schedule_date && item.channel_id === rId) info.availableDates.add(item.schedule_date);
-                    });
-                }
-            }
-        } catch (e) { console.warn(`Історія для регіону ${rId} не знайдена.`); }
-        return { todayDate: info.todayDate, availableDates: Array.from(info.availableDates).sort() };
-    } catch (e) { return info; }
-};
 
-async function determineSourceForDate(date, regionId) {
-    let todayDate = null;
+    // Отримуємо today
     try {
-        const res = await fetch(FILES.today);
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) todayDate = data[0].schedule_date;
-    } catch(e) {}
-    if (todayDate && date === todayDate) return { type: 'today', url: FILES.today };
-    if (todayDate && date > todayDate) return { type: 'tomorrow', url: FILES.tomorrow };
-    return { type: 'history', url: `${FILES.historyBase}${regionId}.json` };
-}
+        const res = await fetch(`${API}/schedules/today?channel_id=${regionId}`);
+        if (res.ok) {
+            const data = await res.json();
+            info.todayDate = data.date;
+            if (regionId) info.availableDates.add(data.date);
+        }
+    } catch (e) {}
+
+    if (!regionId) return { todayDate: info.todayDate, availableDates: [] };
+
+    // Отримуємо tomorrow
+    try {
+        const res = await fetch(`${API}/schedules/tomorrow?channel_id=${regionId}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.date) info.availableDates.add(data.date);
+        }
+    } catch (e) {}
+
+    // Отримуємо доступні дати з архіву через timeseries (останні 60 днів)
+    try {
+        const today = new Date();
+        const from = new Date();
+        from.setDate(today.getDate() - 60);
+        const fromStr = from.toISOString().slice(0, 10);
+        const toStr = today.toISOString().slice(0, 10);
+
+        const res = await fetch(`${API}/stats/timeseries?channel_id=${regionId}&from=${fromStr}&to=${toStr}`);
+        if (res.ok) {
+            const data = await res.json();
+            data.points?.forEach(p => info.availableDates.add(p.date));
+        }
+    } catch (e) {}
+
+    return {
+        todayDate: info.todayDate,
+        availableDates: Array.from(info.availableDates).sort(),
+    };
+};
 
 const generateExactTimeline = (offRangesStr) => {
     let offIntervals = offRangesStr.map(range => {
@@ -140,19 +119,19 @@ const generateExactTimeline = (offRangesStr) => {
         }
     });
     if (currentCursor < 1440) {
-        timeline.push({ start: minutesToTime(currentCursor), end: "24:00", type: 'on' });
+        timeline.push({ start: minutesToTime(currentCursor), end: '24:00', type: 'on' });
     }
     return { timeline, stats: { totalOffMinutes, percentage: Math.round((totalOffMinutes / 1440) * 100) } };
 };
 
 const timeToMinutes = (timeStr) => {
-    if (timeStr === "24:00") return 1440;
+    if (timeStr === '24:00') return 1440;
     const [h, m] = timeStr.trim().split(':').map(Number);
     return h * 60 + m;
 };
 
 const minutesToTime = (minutes) => {
-    if (minutes === 1440) return "24:00";
+    if (minutes === 1440) return '24:00';
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;

@@ -15,23 +15,12 @@ const ScheduleForm = ({ onSearch }) => {
 
   const [availableQueues, setAvailableQueues] = useState([]);
 
-  //Підвантажуємо список міст для відображення
+  //Підвантажуємо список міст через API
   useEffect(() => {
-    const loadCities = async () => {
-      try {
-        //На випадок здвигу файлу cities.json в корінь public (вже один раз сталося, того про всяк випадок краще так :)
-        let response = await fetch('/backend/cities.json');
-        if (!response.ok) response = await fetch('/cities.json');
-
-        if (response.ok) {
-          const data = await response.json();
-          setCities(data.cities || data);
-        }
-      } catch (e) {
-        console.error("Error loading cities:", e);
-      }
-    };
-    loadCities();
+    fetch('/api/cities')
+      .then(res => res.json())
+      .then(data => setCities(data.cities || []))
+      .catch(e => console.error('Error loading cities:', e));
   }, []);
 
   //Календарик для області
@@ -70,22 +59,16 @@ const ScheduleForm = ({ onSearch }) => {
     updateCalendar();
   }, [region]); //Виконуємо тільки при зміні регіону
 
-  //Підгружаємо сьогоднішні черги
+  //Підгружаємо черги через API
   useEffect(() => {
     if (region) {
-      fetch('/schedule_today.json')
+      fetch(`/api/stats/queues-list?channel_id=${region}`)
           .then(res => res.json())
-          .then(dataArray => {
-            if (!Array.isArray(dataArray)) return;
-            const regionData = dataArray.find(item => item.channel_id === Number(region));
-            if (regionData && regionData.schedule) {
-              const queues = Object.keys(regionData.schedule).sort((a, b) => parseFloat(a) - parseFloat(b));
-              setAvailableQueues(queues);
-            } else {
-              setAvailableQueues([]);
-            }
+          .then(data => {
+            const queues = (data.available_queues || []).sort((a, b) => parseFloat(a) - parseFloat(b));
+            setAvailableQueues(queues);
           })
-          .catch(e => setAvailableQueues([]));
+          .catch(() => setAvailableQueues([]));
     } else {
       setAvailableQueues([]);
     }
