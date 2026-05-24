@@ -8,8 +8,8 @@ export async function connectDb(): Promise<Db> {
   if (db) return db;
 
   const config = await loadConfig();
-  const uri = config.mongodb_uri ?? "mongodb://127.0.0.1:27017";
-  const dbName = config.mongodb_db ?? "queues";
+  const uri = process.env["MONGODB_URI"] ?? config.mongodb_uri ?? "mongodb://127.0.0.1:27017";
+  const dbName = process.env["MONGODB_DB"] ?? config.mongodb_db ?? "queues";
 
   client = new MongoClient(uri);
   await client.connect();

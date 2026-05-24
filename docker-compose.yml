@@ -5,6 +5,8 @@ services:
       - "5000:5000"
     volumes:
       - ./backend-js/config.json:/app/config.json
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
     depends_on:
       - mongo
     restart: on-failure
