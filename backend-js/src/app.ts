@@ -1,3 +1,4 @@
+import readline from "readline";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cron from "node-cron";
@@ -134,3 +135,16 @@ const shutdown = async (): Promise<void> => {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+
+// Allow stopping the server by typing ".stop" in the terminal
+if (process.stdin.isTTY) {
+  const stopRl = readline.createInterface({ input: process.stdin });
+  stopRl.on("line", (line) => {
+    if (line.trim() === ".stop") {
+      console.log("[INFO] .stop — зупинка сервера...");
+      stopRl.close();
+      void shutdown();
+    }
+  });
+  console.log('Для зупинки сервера введіть: .stop');
+}

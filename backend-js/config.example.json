@@ -32,7 +32,7 @@
   "batch_parser": {
     "batch_size": 2,
     "batch_delay": 5,
-    "limit_messages": 300
+    "parse_from_date": "2026-01-01"
   },
   "cors_origins": [],
   "update_interval_minutes": 15,

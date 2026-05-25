@@ -14,7 +14,7 @@ import {
 } from "./parser.js";
 import { connectDb, closeDb } from "./db.js";
 import { loadConfig, saveConfig } from "./config.js";
-import type { Channel, ChannelFetchResult, Config, ScheduleEntry } from "./types.js";
+import type { Channel, ChannelFetchResult, Config, ParseState, ScheduleEntry } from "./types.js";
 
 function formatDate(date: Date): string {
   return [
@@ -114,24 +114,31 @@ async function fetchMessagesForChannel(
   today: string,
   tomorrow: string,
   timezoneOffset: number,
-  limitMessages: number
-): Promise<ChannelFetchResult | null> {
+  minId: number
+): Promise<ChannelFetchResult> {
   const { id: channelId, name: channelName, username: channelUsername } = channel;
+  const EMPTY: ChannelFetchResult = { today: null, tomorrow: null, fallback: null, history: [], maxMessageId: 0 };
 
   let bestResult: ScheduleEntry | null = null;
   let tomorrowResult: ScheduleEntry | null = null;
   let fallbackResult: ScheduleEntry | null = null;
-  const allFoundDates: string[] = [];
+  const historyByDate = new Map<string, ScheduleEntry>();
+  let maxMessageId = 0;
   let messagesChecked = 0;
   let scheduleMessagesFound = 0;
+
+  // First run (no stored state): fetch last 10 messages.
+  // Subsequent runs: fetch only new messages since last seen ID.
+  const iterOpts = minId === 0 ? { limit: 10 } : { limit: 0 as 0, minId };
 
   try {
     const entity = await client.getEntity(channelUsername);
     console.log(`Processing channel ${channelId} (${channelName}): ${channelUsername}`);
 
-    for await (const message of client.iterMessages(entity, { limit: limitMessages })) {
-      messagesChecked += 1;
+    for await (const message of client.iterMessages(entity, iterOpts)) {
       const msg = message as Api.Message;
+      if (msg.id > maxMessageId) maxMessageId = msg.id;
+      messagesChecked += 1;
       const msgText = msg.message ?? "";
       if (!isPowerOutageSchedule(msgText) && !hasQueueSchedule(msgText)) continue;
 
@@ -150,7 +157,6 @@ async function fetchMessagesForChannel(
 
       const updateTime = formatTime(msg.date, timezoneOffset);
       const emergencyFlag = isEmergencyOutageActive(msgText);
-      allFoundDates.push(scheduleDate);
 
       const entry: ScheduleEntry = {
         channel_id: channelId,
@@ -164,32 +170,32 @@ async function fetchMessagesForChannel(
         bestResult = entry;
       } else if (scheduleDate === tomorrow && !tomorrowResult) {
         tomorrowResult = entry;
-        if (bestResult) break;
-      } else if (!fallbackResult) {
-        fallbackResult = entry;
+      } else {
+        if (!historyByDate.has(scheduleDate)) {
+          historyByDate.set(scheduleDate, entry);
+          if (!fallbackResult) fallbackResult = entry;
+        }
       }
     }
 
-    if (bestResult || tomorrowResult || fallbackResult) {
+    const history = Array.from(historyByDate.values());
+
+    if (messagesChecked === 0) {
+      console.log(`[OK] Channel ${channelId}: No new messages`);
+    } else if (bestResult || tomorrowResult || fallbackResult) {
       const foundDates: string[] = [];
       if (bestResult) foundDates.push(`today (${bestResult.schedule_date})`);
       if (tomorrowResult) foundDates.push(`tomorrow (${tomorrowResult.schedule_date})`);
       if (!foundDates.length && fallbackResult) foundDates.push(`fallback (${fallbackResult.schedule_date})`);
-      if (foundDates.length) console.log(`[OK] Channel ${channelId}: Found ${foundDates.join(", ")}`);
-
-      return { today: bestResult, tomorrow: tomorrowResult, fallback: fallbackResult };
+      console.log(`[OK] Channel ${channelId}: Found ${foundDates.join(", ")}, history: ${history.length} dates`);
+    } else {
+      console.log(`[ERR] Channel ${channelId}: Checked ${messagesChecked} msgs, ${scheduleMessagesFound} schedule msgs — no valid schedule`);
     }
 
-    const datesInfo = allFoundDates.length
-      ? `, found dates: ${[...new Set(allFoundDates)]}`
-      : "";
-    console.log(
-      `[ERR] Channel ${channelId}: Checked ${messagesChecked} messages, found ${scheduleMessagesFound} schedule messages${datesInfo}`
-    );
-    return null;
+    return { today: bestResult, tomorrow: tomorrowResult, fallback: fallbackResult, history, maxMessageId };
   } catch (error) {
     console.log(`[ERR] Error fetching from channel ${channelId}: ${(error as Error).message}`);
-    return null;
+    return EMPTY;
   }
 }
 
@@ -207,8 +213,7 @@ export async function fetchAllChannels(): Promise<boolean> {
   const config = await loadConfig();
   validateConfig(config);
 
-  const { batch_size: batchSize = 2, batch_delay: batchDelay = 5, limit_messages: limitMessages = 200 } =
-    config.batch_parser ?? {};
+  const { batch_size: batchSize = 2, batch_delay: batchDelay = 5 } = config.batch_parser ?? {};
   const timezoneOffset = config.timezone_offset ?? 2;
   const channels = config.channels;
 
@@ -216,6 +221,12 @@ export async function fetchAllChannels(): Promise<boolean> {
   const todayCol = db.collection<ScheduleEntry>("schedules_today");
   const tomorrowCol = db.collection<ScheduleEntry>("schedules_tomorrow");
   const historyCol = db.collection<ScheduleEntry>("schedules_history");
+  const parseStateCol = db.collection<ParseState>("parse_state");
+
+  // Load last seen message IDs per channel
+  const existingStates = await parseStateCol.find({}, { projection: { _id: 0 } }).toArray() as ParseState[];
+  const parseState: Record<number, number> = {};
+  for (const s of existingStates) parseState[s.channel_id] = s.last_message_id;
 
   let client: TelegramClient | undefined;
   try {
@@ -243,19 +254,23 @@ export async function fetchAllChannels(): Promise<boolean> {
 
     let todayUpdated = 0;
     let tomorrowUpdated = 0;
+    let anyNewData = false;
+    const newMessageIds: Record<number, number> = {};
 
     for (let batchIdx = 0; batchIdx < channels.length; batchIdx += batchSize) {
       const batch = channels.slice(batchIdx, batchIdx + batchSize);
-      console.log(
-        `\nProcessing batch ${Math.floor(batchIdx / batchSize) + 1}/${Math.ceil(channels.length / batchSize)}`
-      );
-      console.log(`Parsing up to ${limitMessages} messages per channel`);
+      console.log(`\nProcessing batch ${Math.floor(batchIdx / batchSize) + 1}/${Math.ceil(channels.length / batchSize)}`);
 
       for (const channel of batch) {
-        const result = await fetchMessagesForChannel(
-          client, channel, today, tomorrow, timezoneOffset, limitMessages
-        );
-        if (!result) continue;
+        const minId = parseState[channel.id] ?? 0;
+        const result = await fetchMessagesForChannel(client, channel, today, tomorrow, timezoneOffset, minId);
+
+        // Track highest message ID seen for this channel
+        if (result.maxMessageId > 0) newMessageIds[channel.id] = result.maxMessageId;
+
+        // Skip DB updates if no schedule data in new messages
+        if (!result.today && !result.tomorrow && !result.fallback && result.history.length === 0) continue;
+        anyNewData = true;
 
         if (result.today) {
           const idx = todayData.findIndex((d) => d.channel_id === channel.id);
@@ -284,6 +299,13 @@ export async function fetchAllChannels(): Promise<boolean> {
             todayUpdated++;
           }
         }
+
+        for (const entry of result.history) {
+          const hist = allHistory[channel.id] ?? [];
+          const exists = hist.some((e) => e.schedule_date === entry.schedule_date);
+          if (!exists) hist.push(entry);
+          allHistory[channel.id] = hist;
+        }
       }
 
       if (batchIdx + batchSize < channels.length) {
@@ -292,12 +314,26 @@ export async function fetchAllChannels(): Promise<boolean> {
       }
     }
 
-    await todayCol.deleteMany({});
-    if (todayData.length) await todayCol.insertMany(todayData);
+    // Save updated last seen message IDs
+    const parseStateOps = Object.entries(newMessageIds).map(([id, msgId]) => ({
+      updateOne: {
+        filter: { channel_id: Number(id) },
+        update: { $set: { channel_id: Number(id), last_message_id: msgId } },
+        upsert: true,
+      },
+    }));
+    if (parseStateOps.length) await parseStateCol.bulkWrite(parseStateOps);
 
-    await tomorrowCol.deleteMany({});
-    if (tomorrowData.length) await tomorrowCol.insertMany(tomorrowData);
+    // Only rewrite today/tomorrow collections if something actually changed
+    if (anyNewData || rotated) {
+      await todayCol.deleteMany({});
+      if (todayData.length) await todayCol.insertMany(todayData);
 
+      await tomorrowCol.deleteMany({});
+      if (tomorrowData.length) await tomorrowCol.insertMany(tomorrowData);
+    }
+
+    // History always uses upsert — safe to run regardless
     const historyOps = channels.flatMap((channel) => {
       const history = allHistory[channel.id] ?? [];
       history.sort((a, b) => (a.schedule_date < b.schedule_date ? 1 : -1));
@@ -309,15 +345,17 @@ export async function fetchAllChannels(): Promise<boolean> {
         },
       }));
     });
-
     if (historyOps.length) await historyCol.bulkWrite(historyOps);
 
     console.log("\n============================================================");
     console.log("Parsing complete!");
     if (rotated) console.log("[OK] Schedules rotated to new day");
-    console.log(`Updated today schedules: ${todayUpdated}/${channels.length} channels`);
-    console.log(`Updated tomorrow schedules: ${tomorrowUpdated}/${channels.length} channels`);
-    console.log("Saved to MongoDB collections: schedules_today, schedules_tomorrow, schedules_history");
+    if (anyNewData) {
+      console.log(`Updated today: ${todayUpdated}/${channels.length} channels`);
+      console.log(`Updated tomorrow: ${tomorrowUpdated}/${channels.length} channels`);
+    } else {
+      console.log("[OK] No new messages — DB not modified");
+    }
     console.log("============================================================");
     return true;
   } catch (error) {

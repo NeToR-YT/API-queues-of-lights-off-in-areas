@@ -7,7 +7,7 @@ export interface Channel {
 export interface BatchConfig {
   batch_size: number;
   batch_delay: number;
-  limit_messages: number;
+  parse_from_date: string; // ISO date string, e.g. "2026-01-01"
 }
 
 export interface Config {
@@ -49,4 +49,11 @@ export interface ChannelFetchResult {
   today: ScheduleEntry | null;
   tomorrow: ScheduleEntry | null;
   fallback: ScheduleEntry | null;
+  history: ScheduleEntry[];
+  maxMessageId: number;
+}
+
+export interface ParseState {
+  channel_id: number;
+  last_message_id: number;
 }

@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Тестова консоль статистики — Графіки відключень</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2028;
+      --border: #2a3340;
+      --text: #e6e8ec;
+      --muted: #8b95a3;
+      --accent: #4f9eff;
+      --accent-dim: #2a4a6e;
+      --good: #4fd181;
+      --bad: #ff6464;
+      --warn: #ffb84f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      font-size: 14px;
+    }
+    h1 { margin: 0 0 16px; font-size: 18px; font-weight: 600; }
+    h2 { margin: 24px 0 8px; font-size: 14px; font-weight: 600; color: var(--accent); }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: end;
+      padding: 12px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 6px; margin-bottom: 16px;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    select, input, button {
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 10px; font-size: 13px; font-family: inherit;
+    }
+    button {
+      background: var(--accent-dim); color: var(--text); cursor: pointer;
+      font-weight: 500; transition: background 0.15s;
+    }
+    button:hover { background: var(--accent); }
+    button.secondary { background: var(--panel); }
+    button.secondary:hover { background: var(--border); }
+    .endpoints { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .stat-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+    }
+    .stat-card .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .stat-card .value { font-size: 16px; font-weight: 600; margin-top: 2px; }
+    .stat-card .value.good { color: var(--good); }
+    .stat-card .value.bad { color: var(--bad); }
+    .stat-card .value.warn { color: var(--warn); }
+    pre {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+      padding: 10px; overflow: auto; font-size: 11px; line-height: 1.4;
+      max-height: 500px; margin: 0;
+      font-family: "Cascadia Code", Consolas, monospace;
+    }
+    .chart-box { position: relative; height: 320px; }
+    .url-display {
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 11px; color: var(--muted); padding: 6px 10px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+      margin-bottom: 8px; word-break: break-all;
+    }
+    .status { font-size: 12px; color: var(--muted); margin-left: auto; }
+    .status.error { color: var(--bad); }
+    .status.success { color: var(--good); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; font-size: 10px; text-transform: uppercase; }
+    .mode-btn { background: var(--panel); color: var(--muted); cursor: pointer; font-size: 13px; font-family: inherit; transition: background 0.15s, color 0.15s; }
+    .mode-btn.active { background: var(--accent-dim); color: var(--text); }
+    .mode-btn:hover:not(.active) { background: var(--border); }
+    .stat-card .desc { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+  </style>
+</head>
+<body>
+  <h1>Тестова консоль API статистики</h1>
+
+  <div class="controls">
+    <div class="field">
+      <label>Область / місто</label>
+      <select id="city"></select>
+    </div>
+    <div class="field">
+      <label>Черга</label>
+      <select id="queue"></select>
+    </div>
+    <div class="field">
+      <label>Режим</label>
+      <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+        <button id="mode-range" class="mode-btn active" style="border:none;border-radius:0;padding:6px 14px">Діапазон</button>
+        <button id="mode-day"   class="mode-btn"        style="border:none;border-radius:0;padding:6px 14px;border-left:1px solid var(--border)">Конкретна дата</button>
+      </div>
+    </div>
+    <div id="range-inputs" style="display:flex;gap:8px">
+      <div class="field">
+        <label>Від дати</label>
+        <input id="from" type="date" />
+      </div>
+      <div class="field">
+        <label>До дати</label>
+        <input id="to" type="date" />
+      </div>
+    </div>
+    <div id="day-input" style="display:none">
+      <div class="field">
+        <label>Дата</label>
+        <input id="specific-date" type="date" />
+      </div>
+    </div>
+    <button id="reload-queues" class="secondary">↻ Черги</button>
+    <span class="status" id="status">готово</span>
+  </div>
+
+  <!-- Кнопки для режиму ДІАПАЗОН -->
+  <div id="btns-range" class="endpoints">
+    <button data-endpoint="summary">Зведення</button>
+    <button data-endpoint="timeseries">Часовий ряд</button>
+    <button data-endpoint="heatmap">Теплова мапа</button>
+    <button data-endpoint="weekday">Дні тижня</button>
+    <button data-endpoint="buckets">Періоди доби</button>
+    <button data-endpoint="queues">Черги</button>
+    <button data-endpoint="cities">Міста</button>
+    <button data-endpoint="coverage">Покриття даних</button>
+  </div>
+  <!-- Кнопки для режиму КОНКРЕТНА ДАТА -->
+  <div id="btns-day" class="endpoints" style="display:none">
+    <button data-endpoint="summary">Зведення</button>
+    <button data-endpoint="buckets">Періоди доби</button>
+    <button data-endpoint="queues">Черги</button>
+    <button data-endpoint="cities">Міста</button>
+    <button id="btn-day-single">Розклад дня</button>
+  </div>
+
+  <div class="url-display" id="url-display">—</div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2 id="visual-title">Візуалізація</h2>
+      <div id="endpoint-desc" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+      <div id="visual"></div>
+    </div>
+    <div class="panel">
+      <h2>JSON-відповідь сервера</h2>
+      <pre id="json">—</pre>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = { chart: null, mode: "range" }; // "range" | "day"
+
+    function setMode(mode) {
+      state.mode = mode;
+      $("mode-range").classList.toggle("active", mode === "range");
+      $("mode-day").classList.toggle("active",   mode === "day");
+      $("range-inputs").style.display      = mode === "range" ? "flex"  : "none";
+      $("day-input").style.display         = mode === "day"   ? "flex"  : "none";
+      $("btns-range").style.display = mode === "range" ? "flex" : "none";
+      $("btns-day").style.display   = mode === "day"   ? "flex" : "none";
+    }
+
+    const ENDPOINT_TITLES = {
+      summary:    "Зведення",
+      timeseries: "Часовий ряд",
+      heatmap:    "Теплова мапа",
+      weekday:    "Дні тижня",
+      buckets:    "Періоди доби",
+      queues:     "Черги",
+      cities:     "Міста",
+      coverage:   "Покриття даних",
+    };
+
+    const ENDPOINT_DESCRIPTIONS = {
+      summary:    "Ключові метрики за вибраний період: надійність, середнє та медіана, серії, аварійні",
+      timeseries: "Точки по кожному дню: годин без світла, кількість блоків, аварійні",
+      heatmap:    "Для кожної з 24 годин доби — % днів коли не було світла",
+      weekday:    "Середнє годин без світла по кожному дню тижня (Пн–Нд)",
+      buckets:    "Розподіл по 4 частинах доби: ранок (6-12), день (12-18), вечір (18-22), ніч (22-6)",
+      queues:     "Порівняння всіх черг у місті: надійність, середнє, загальні години",
+      cities:     "Рейтинг усіх міст за надійністю за вибраний період",
+      coverage:   "Відсоток днів з даними у базі відносно вибраного діапазону",
+      day:        "Детальний розклад по чергах за конкретний день",
+    };
+
+    function setStatus(text, kind = "") {
+      const el = $("status");
+      el.textContent = text;
+      el.className = "status " + kind;
+    }
+
+    function formatMs(ms) {
+      return ms < 1000 ? `${ms} мс` : `${(ms / 1000).toFixed(1)} с`;
+    }
+
+    function defaultDates() {
+      const today = new Date();
+      const from = new Date(today);
+      from.setDate(from.getDate() - 30);
+      const toStr = today.toISOString().slice(0, 10);
+      const fromStr = from.toISOString().slice(0, 10);
+      $("from").value = fromStr;
+      $("to").value = toStr;
+    }
+
+    async function loadCities() {
+      try {
+        const res = await fetch("/api/cities");
+        const json = await res.json();
+        const select = $("city");
+        select.innerHTML = "";
+        (json.cities || []).forEach((c) => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        setStatus("Помилка завантаження міст: " + e.message, "error");
+      }
+    }
+
+    async function loadQueues() {
+      const channelId = $("city").value;
+      if (!channelId) return;
+      try {
+        const res = await fetch(`/api/stats/queues-list?channel_id=${channelId}&from=${$("from").value}&to=${$("to").value}`);
+        const json = await res.json();
+        const select = $("queue");
+        const current = select.value;
+        select.innerHTML = "";
+        (json.available_queues || []).forEach((q) => {
+          const opt = document.createElement("option");
+          opt.value = q;
+          opt.textContent = `Черга ${q}`;
+          select.appendChild(opt);
+        });
+        select.value = current;
+      } catch (e) {
+        setStatus("Помилка завантаження черг: " + e.message, "error");
+      }
+    }
+
+    function buildUrl(endpoint) {
+      const params = new URLSearchParams();
+      const channelId = $("city").value;
+      const queue = $("queue").value;
+      const from = $("from").value;
+      const to = $("to").value;
+
+      const specificDate  = $("specific-date").value;
+      const effectiveFrom = state.mode === "day" ? specificDate : from;
+      const effectiveTo   = state.mode === "day" ? specificDate : to;
+
+      if (endpoint !== "cities") params.set("channel_id", channelId);
+      if (queue && !["queues", "cities", "coverage"].includes(endpoint)) params.set("queue", queue);
+      if (effectiveFrom) params.set("from", effectiveFrom);
+      if (effectiveTo)   params.set("to", effectiveTo);
+
+      return `/api/stats/${endpoint}?${params.toString()}`;
+    }
+
+    function destroyChart() {
+      if (state.chart) {
+        state.chart.destroy();
+        state.chart = null;
+      }
+    }
+
+    function renderVisual(endpoint, data) {
+      destroyChart();
+      const visual = $("visual");
+      visual.innerHTML = "";
+
+      if (endpoint === "summary") return renderSummary(visual, data);
+      if (endpoint === "timeseries") return renderTimeseries(visual, data);
+      if (endpoint === "heatmap") return renderHeatmap(visual, data);
+      if (endpoint === "weekday") return renderWeekday(visual, data);
+      if (endpoint === "buckets") return renderBuckets(visual, data);
+      if (endpoint === "queues") return renderQueues(visual, data);
+      if (endpoint === "cities") return renderCities(visual, data);
+      if (endpoint === "coverage") return renderCoverage(visual, data);
+    }
+
+    function statCard(label, value, kind = "", desc = "") {
+      return `<div class="stat-card"><div class="label">${label}</div><div class="value ${kind}">${value}</div>${desc ? `<div class="desc">${desc}</div>` : ""}</div>`;
+    }
+
+    function reliabilityKind(p) {
+      if (p >= 80) return "good";
+      if (p >= 50) return "warn";
+      return "bad";
+    }
+
+    function renderSummary(el, d) {
+      const isOneDay = d.period.days_total === 1;
+      const blackoutH = Math.round(d.longest_blackout_streak_minutes / 60 * 10) / 10;
+      const powerH    = Math.round(d.longest_power_streak_minutes    / 60 * 10) / 10;
+      const minBlackoutH = Math.round(d.min_blackout_duration_minutes / 60 * 10) / 10;
+      const minPowerH    = Math.round(d.min_power_duration_minutes    / 60 * 10) / 10;
+
+      const cards = isOneDay ? [
+        // --- Один день: тільки актуальні метрики ---
+        statCard("Надійність", `${d.reliability_percent}%`,
+          reliabilityKind(d.reliability_percent),
+          "% часу зі світлом. 100% = весь день є світло, 0% = весь день відключено"),
+
+        statCard("Без світла", `${d.total_off_hours} год`, "",
+          "Скільки годин цього дня не було світла"),
+
+        statCard("Кількість відключень", `${d.avg_blocks_per_day}`, "",
+          "Скільки окремих відключень було протягом дня"),
+
+        statCard("Серед. тривалість відключення", `${d.avg_block_minutes} хв`, "",
+          "Середня тривалість одного безперервного відключення"),
+
+        statCard("Найдовше відключення", `${blackoutH} год`, "bad",
+          "Найдовший безперервний час без світла протягом дня"),
+
+        statCard("Найменьше відключення", `${minBlackoutH} год`, "",
+          "Найменша тривалість безперервного відключення"),
+
+        statCard("Найдовший час зі світлом", `${powerH} год`, "good",
+          "Найдовший безперервний час зі світлом протягом дня"),
+
+        statCard("Найменьше часу зі світлом", `${minPowerH} год`, "",
+          "Найменша тривалість безперервного часу зі світлом"),
+
+        d.emergency_days_count
+          ? statCard("Аварійні відключення", "Активні", "warn",
+              "Цього дня діяли графіки аварійних відключень (ГАВ) — понадпланові")
+          : statCard("Аварійні відключення", "Відсутні", "good",
+              "Цього дня аварійних відключень не було"),
+
+      ] : [
+        // --- Діапазон: повний набір ---
+        statCard("Надійність", `${d.reliability_percent}%`,
+          reliabilityKind(d.reliability_percent),
+          "% часу зі світлом за весь вибраний період. 100% = завжди є світло"),
+
+        statCard("Серед. без світла / добу", `${d.avg_off_hours_per_day} год`, "",
+          "В середньому скільки годин на добу не було світла"),
+
+        statCard("Мін / Макс на добу", `${d.min_off_hours_per_day} / ${d.max_off_hours_per_day} год`, "",
+          "Найкращий день (мінімум годин без світла) і найгірший день (максимум) за вибраний період"),
+
+        statCard("Стд. відхилення", `${d.stddev_off_hours} год`, "",
+          "Наскільки непередбачуваний графік. Мале = стабільно схожі дні, велике = різкі перепади між днями"),
+
+        statCard("Всього без світла", `${d.total_off_hours} год`, "",
+          `Сума всіх годин без світла за ${d.period.days_with_data} днів з даними`),
+
+        statCard("Серед. тривалість відключення", `${d.avg_block_minutes} хв`, "",
+          "Середня тривалість одного безперервного відключення. Коротші — менш болісні"),
+
+        statCard("Серед. відключень / добу", `${d.avg_blocks_per_day}`, "",
+          "Скільки окремих відключень в середньому за добу"),
+
+        statCard("Найдовше відключення", `${blackoutH} год`, "bad",
+          "Найдовший безперервний час без світла за весь обраний період (може тривати через ніч)"),
+
+        statCard("Найменьше відключення", `${minBlackoutH} год`, "",
+          "Найменша тривалість безперервного відключення за вибраний період"),
+
+        statCard("Найдовший час зі світлом", `${powerH} год`, "good",
+          "Найдовший безперервний час зі світлом за весь обраний період"),
+
+        statCard("Найменьше часу зі світлом", `${minPowerH} год`, "",
+          "Найменша тривалість безперервного часу зі світлом за вибраний період"),
+
+        statCard("Дні з аварійними", `${d.emergency_days_count} (${d.emergency_rate_percent}%)`,
+          d.emergency_days_count ? "warn" : "",
+          "Кількість днів коли діяли графіки аварійних відключень (ГАВ) — понадпланові, не за розкладом"),
+
+        statCard("Днів з даними", `${d.period.days_with_data}/${d.period.days_total}`, "",
+          "Скільки днів є в базі з усіх очікуваних за вибраний діапазон"),
+      ];
+      el.innerHTML = `<div class="stat-grid">${cards.join("")}</div>`;
+
+      if (!isOneDay && d.top_worst_days?.length) {
+        el.innerHTML += `<h2 style="margin-top:8px">Топ найгірших днів</h2>` +
+          `<table><tr><th>Дата</th><th>Без світла</th></tr>` +
+          d.top_worst_days.map(x => `<tr><td>${x.date}</td><td>${x.off_hours} год</td></tr>`).join("") +
+          `</table>`;
+      }
+      if (!isOneDay && d.top_best_days?.length) {
+        el.innerHTML += `<h2 style="margin-top:8px">Топ найкращих днів</h2>` +
+          `<table><tr><th>Дата</th><th>Без світла</th></tr>` +
+          d.top_best_days.map(x => `<tr><td>${x.date}</td><td>${x.off_hours} год</td></tr>`).join("") +
+          `</table>`;
+      }
+    }
+
+    function renderTimeseries(el, d) {
+      el.innerHTML = `<div class="chart-box"><canvas id="chart"></canvas></div>`;
+      const ctx = $("chart").getContext("2d");
+      state.chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: d.points.map(p => p.date),
+          datasets: [{
+            label: "Годин без світла за добу",
+            data: d.points.map(p => p.off_hours),
+            borderColor: "#4f9eff",
+            backgroundColor: "rgba(79, 158, 255, 0.15)",
+            fill: true,
+            tension: 0.2,
+            pointBackgroundColor: d.points.map(p => p.emergency ? "#ff6464" : "#4f9eff"),
+            pointRadius: 3,
+          }],
+        },
+        options: chartBaseOptions(),
+      });
+    }
+
+    function renderHeatmap(el, d) {
+      const tw = d.typical_window;
+      const windowHtml = tw && tw.days_with_outage > 0
+        ? `<div style="margin-top:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:13px">
+            <span style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px">Типовий час відключення</span><br>
+            <span style="color:var(--bad)">▼ ${tw.avg_first_off}</span>
+            &nbsp;перше вимкнення &nbsp;·&nbsp;
+            <span style="color:var(--good)">▲ ${tw.avg_last_on}</span>
+            &nbsp;останнє повернення<br>
+            <span style="color:var(--warn)">● ${tw.avg_dominant_start} – ${tw.avg_dominant_end}</span>
+            &nbsp;найдовший блок (в середньому) &nbsp;·&nbsp;
+            <span style="color:var(--muted)">на основі ${tw.days_with_outage} днів</span>
+           </div>`
+        : `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Немає даних про відключення</div>`;
+
+      el.innerHTML = `<div class="chart-box"><canvas id="chart"></canvas></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+          Найгірша година: <b>${String(d.worst_hour).padStart(2, "0")}:00</b> &nbsp;·&nbsp;
+          Найкраща: <b>${String(d.best_hour).padStart(2, "0")}:00</b> &nbsp;·&nbsp; днів у вибірці: ${d.days_count}
+        </div>${windowHtml}`;
+      const ctx = $("chart").getContext("2d");
+      state.chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: d.hours.map((_, i) => `${String(i).padStart(2, "0")}:00`),
+          datasets: [{
+            label: "% днів коли в цю годину не було світла",
+            data: d.hours,
+            backgroundColor: d.hours.map(v => `rgba(255, 100, 100, ${0.2 + v / 150})`),
+          }],
+        },
+        options: chartBaseOptions(),
+      });
+    }
+
+    function renderWeekday(el, d) {
+      el.innerHTML = `<div class="chart-box"><canvas id="chart"></canvas></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+          Найгірший день тижня: <b>${d.weekdays[d.worst_weekday]?.name}</b> &nbsp;·&nbsp;
+          Найкращий: <b>${d.weekdays[d.best_weekday]?.name}</b>
+        </div>`;
+      const ctx = $("chart").getContext("2d");
+      state.chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: d.weekdays.map(w => w.name),
+          datasets: [{
+            label: "Серед. годин без світла",
+            data: d.weekdays.map(w => w.avg_off_hours),
+            backgroundColor: "#4f9eff",
+          }],
+        },
+        options: chartBaseOptions(),
+      });
+    }
+
+    function renderBuckets(el, d) {
+      el.innerHTML = `<div class="chart-box"><canvas id="chart"></canvas></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)">днів у вибірці: ${d.total_days}</div>`;
+      const ctx = $("chart").getContext("2d");
+      state.chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Ранок (6–12)", "День (12–18)", "Вечір (18–22)", "Ніч (22–6)"],
+          datasets: [{
+            label: "Серед. годин без світла",
+            data: [d.morning, d.day, d.evening, d.night],
+            backgroundColor: ["#4fd181", "#4f9eff", "#ffb84f", "#8b95a3"],
+          }],
+        },
+        options: chartBaseOptions(),
+      });
+    }
+
+    function renderQueues(el, d) {
+      el.innerHTML = `<div class="chart-box"><canvas id="chart"></canvas></div>
+        <table style="margin-top:12px">
+          <tr><th>Черга</th><th>Сер./добу</th><th>Всього</th><th>Надійність</th><th>Днів</th></tr>
+          ${d.queues.map(q => `<tr>
+            <td><b>${q.queue}</b></td>
+            <td>${q.avg_off_hours} год</td>
+            <td>${q.total_off_hours} год</td>
+            <td>${q.reliability_percent}%</td>
+            <td>${q.days_with_data}</td>
+          </tr>`).join("")}
+        </table>`;
+      const ctx = $("chart").getContext("2d");
+      state.chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: d.queues.map(q => q.queue),
+          datasets: [{
+            label: "Серед. годин без світла / добу",
+            data: d.queues.map(q => q.avg_off_hours),
+            backgroundColor: "#4f9eff",
+          }],
+        },
+        options: chartBaseOptions(),
+      });
+    }
+
+    function renderCities(el, d) {
+      el.innerHTML = `<div class="chart-box"><canvas id="chart"></canvas></div>
+        <table style="margin-top:12px">
+          <tr><th>Місто</th><th>Сер./добу</th><th>Надійність</th><th>Аварійних</th><th>Днів</th></tr>
+          ${d.cities.map(c => `<tr>
+            <td><b>${c.city_name}</b></td>
+            <td>${c.avg_off_hours_per_day} год</td>
+            <td>${c.reliability_percent}%</td>
+            <td>${c.emergency_days_count}</td>
+            <td>${c.days_with_data}</td>
+          </tr>`).join("")}
+        </table>`;
+      const ctx = $("chart").getContext("2d");
+      state.chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: d.cities.map(c => c.city_name),
+          datasets: [{
+            label: "Надійність %",
+            data: d.cities.map(c => c.reliability_percent),
+            backgroundColor: d.cities.map(c => c.reliability_percent >= 80 ? "#4fd181" : c.reliability_percent >= 50 ? "#ffb84f" : "#ff6464"),
+          }],
+        },
+        options: chartBaseOptions(),
+      });
+    }
+
+    function renderDay(el, d) {
+      const emerg = d.emergency_outages
+        ? `<span style="color:var(--warn);font-weight:600">⚠ Аварійні відключення активні</span>`
+        : `<span style="color:var(--good)">✓ Аварійних немає</span>`;
+
+      const rows = d.queues.map(q => {
+        const periodsStr = q.periods.length ? q.periods.join(", ") : "—";
+        return `<tr>
+          <td><b>${q.queue}</b></td>
+          <td>${periodsStr}</td>
+          <td style="color:var(--bad)">${q.off_hours} год</td>
+        </tr>`;
+      }).join("");
+
+      el.innerHTML = `
+        <div style="margin-bottom:8px;font-size:13px">
+          Дата: <b>${d.date}</b> &nbsp;·&nbsp;
+          Опубліковано о: <b>${d.schedule_time ?? "—"}</b> &nbsp;·&nbsp; ${emerg}
+        </div>
+        <table>
+          <tr><th>Черга</th><th>Інтервали відключень</th><th>Без світла</th></tr>
+          ${rows || '<tr><td colspan="3" style="color:var(--muted)">Немає даних</td></tr>'}
+        </table>`;
+    }
+
+    function renderCoverage(el, d) {
+      el.innerHTML = `<div class="stat-grid">
+        ${statCard("Покриття", `${d.coverage_percent}%`, d.coverage_percent >= 80 ? "good" : d.coverage_percent >= 50 ? "warn" : "bad")}
+        ${statCard("Очікувалось днів", d.expected_days)}
+        ${statCard("Є дані за днів", d.days_with_data)}
+        ${statCard("Пропущено", d.missing_dates.length, d.missing_dates.length ? "warn" : "good")}
+      </div>`;
+      if (d.missing_dates.length) {
+        el.innerHTML += `<h2>Пропущені дати</h2><pre>${d.missing_dates.join("\n")}</pre>`;
+      }
+    }
+
+    function chartBaseOptions() {
+      return {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: "#e6e8ec" } } },
+        scales: {
+          x: { ticks: { color: "#8b95a3" }, grid: { color: "#2a3340" } },
+          y: { ticks: { color: "#8b95a3" }, grid: { color: "#2a3340" }, beginAtZero: true },
+        },
+      };
+    }
+
+    function validateDates() {
+      if (state.mode === "range") {
+        if (!$("from").value || !$("to").value) {
+          setStatus("Оберіть діапазон дат (від і до)", "error");
+          return false;
+        }
+      } else {
+        if (!$("specific-date").value) {
+          setStatus("Оберіть дату", "error");
+          return false;
+        }
+      }
+      if (!$("queue").value) {
+        setStatus("Оберіть чергу", "error");
+        return false;
+      }
+      return true;
+    }
+
+    async function run(endpoint) {
+      if (endpoint !== "cities" && !validateDates()) return;
+      const url = buildUrl(endpoint);
+      $("url-display").textContent = "GET " + url;
+      const title = ENDPOINT_TITLES[endpoint] || endpoint;
+      $("visual-title").textContent = `Візуалізація — ${title}`;
+      $("endpoint-desc").textContent = ENDPOINT_DESCRIPTIONS[endpoint] || "";
+      setStatus("завантаження...");
+      try {
+        const t0 = performance.now();
+        const res = await fetch(url);
+        const json = await res.json();
+        const dt = Math.round(performance.now() - t0);
+        $("json").textContent = JSON.stringify(json, null, 2);
+        if (!res.ok) {
+          setStatus(`HTTP ${res.status} · ${formatMs(dt)}`, "error");
+          $("visual").innerHTML = `<div style="color:var(--bad);padding:8px">${json.error ?? "Помилка"}</div>`;
+          destroyChart();
+          return;
+        }
+        setStatus(`Готово · ${formatMs(dt)}`, "success");
+        renderVisual(endpoint, json);
+      } catch (e) {
+        setStatus("Помилка з'єднання: " + e.message, "error");
+      }
+    }
+
+    // кнопки статистики (обидва набори)
+    document.querySelectorAll("#btns-range button[data-endpoint], #btns-day button[data-endpoint]").forEach((btn) => {
+      btn.addEventListener("click", () => run(btn.dataset.endpoint));
+    });
+
+    // хелпер для виклику /api/stats/day
+    async function runDay(date) {
+      if (!date) { setStatus("Оберіть дату", "error"); return; }
+      const channelId = $("city").value;
+      const queue = $("queue").value;
+      const params = new URLSearchParams({ channel_id: channelId, date });
+      if (queue) params.set("queue", queue);
+      const url = `/api/stats/day?${params}`;
+      $("url-display").textContent = "GET " + url;
+      $("visual-title").textContent = `Розклад дня — ${date}`;
+      $("endpoint-desc").textContent = "Детальний розклад по чергах за конкретний день";
+      setStatus("завантаження...");
+      try {
+        const t0 = performance.now();
+        const res = await fetch(url);
+        const json = await res.json();
+        const dt = Math.round(performance.now() - t0);
+        $("json").textContent = JSON.stringify(json, null, 2);
+        if (!res.ok) {
+          setStatus(`HTTP ${res.status} · ${formatMs(dt)}`, "error");
+          $("visual").innerHTML = `<div style="color:var(--bad);padding:8px">${json.error ?? "Помилка"}</div>`;
+          destroyChart(); return;
+        }
+        setStatus(`Готово · ${formatMs(dt)}`, "success");
+        destroyChart();
+        renderDay($("visual"), json);
+      } catch (e) {
+        setStatus("Помилка з'єднання: " + e.message, "error");
+      }
+    }
+
+    // "Розклад дня" в режимі конкретної дати
+    $("btn-day-single").addEventListener("click", () => runDay($("specific-date").value));
+
+    $("mode-range").addEventListener("click", () => setMode("range"));
+    $("mode-day").addEventListener("click",   () => setMode("day"));
+
+    $("reload-queues").addEventListener("click", loadQueues);
+    $("city").addEventListener("change", loadQueues);
+
+    (async () => {
+      defaultDates();
+      await loadCities();
+      await loadQueues();
+    })();
+  </script>
+</body>
+</html>

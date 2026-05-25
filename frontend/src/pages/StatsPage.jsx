@@ -7,7 +7,7 @@ const StatsPage = ({ theme }) => {
   const [cities, setCities] = useState([]);
   const [queues, setQueues] = useState([]);
   const [selectedCity, setSelectedCity] = useState('');
-  const [selectedQueue, setSelectedQueue] = useState('union');
+  const [selectedQueue, setSelectedQueue] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [date, setDate] = useState('');
@@ -25,6 +25,7 @@ const StatsPage = ({ theme }) => {
   const timeseriesRef = useRef(null);
   const weekdayRef = useRef(null);
   const bucketsRef = useRef(null);
+  const heatmapRef = useRef(null);
   const chartsRef = useRef({});
   const [autoLoaded, setAutoLoaded] = useState(false);
 
@@ -92,8 +93,8 @@ const StatsPage = ({ theme }) => {
       const data = await fetchJson(`/api/stats/queues-list?${params.toString()}`);
       const nextQueues = data.available_queues || [];
       setQueues(nextQueues);
-      if (selectedQueue !== 'union' && !nextQueues.includes(selectedQueue)) {
-        setSelectedQueue('union');
+      if (nextQueues.length > 0 && !nextQueues.includes(selectedQueue)) {
+        setSelectedQueue(nextQueues[0]);
       }
     } catch (err) {
       updateStatus('Не вдалося завантажити черги', 'error');
@@ -106,7 +107,7 @@ const StatsPage = ({ theme }) => {
     const { fromValue, toValue } = ensureDates();
 
     const params = new URLSearchParams({ channel_id: selectedCity, from: fromValue, to: toValue });
-    if (selectedQueue && selectedQueue !== 'union') params.set('queue', selectedQueue);
+    if (selectedQueue) params.set('queue', selectedQueue);
 
     try {
       const [summaryRes, timeseriesRes, heatmapRes, weekdayRes, bucketsRes, queuesRes, citiesRes, coverageRes] =
@@ -143,10 +144,10 @@ const StatsPage = ({ theme }) => {
     const { dateValue } = ensureDates();
 
     const dayParams = new URLSearchParams({ channel_id: selectedCity, date: dateValue });
-    if (selectedQueue && selectedQueue !== 'union') dayParams.set('queue', selectedQueue);
+    if (selectedQueue) dayParams.set('queue', selectedQueue);
 
     const rangeParams = new URLSearchParams({ channel_id: selectedCity, from: dateValue, to: dateValue });
-    if (selectedQueue && selectedQueue !== 'union') rangeParams.set('queue', selectedQueue);
+    if (selectedQueue) rangeParams.set('queue', selectedQueue);
 
     try {
       const [summaryRes, bucketsRes, queuesRes, dayRes] = await Promise.all([
@@ -303,6 +304,57 @@ const StatsPage = ({ theme }) => {
   }, [weekday, theme]);
 
   useEffect(() => {
+    if (!heatmapRef.current) return;
+    if (!heatmap?.hours?.length) {
+      createChart('heatmap', heatmapRef.current, null);
+      return;
+    }
+    const labels = heatmap.hours.map((_, h) => `${String(h).padStart(2, '0')}:00`);
+    const data = heatmap.hours;
+    const colors = data.map((v) => heatColor(v));
+    const config = {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '% з відключенням',
+          data,
+          backgroundColor: colors,
+          borderRadius: 6,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        ...baseChartOptions(),
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.parsed.y.toFixed(1)}%`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: css('--text-secondary'), maxRotation: 45 },
+            grid: { color: css('--border') },
+          },
+          y: {
+            min: 0,
+            max: 100,
+            ticks: {
+              color: css('--text-secondary'),
+              callback: (v) => `${v}%`,
+            },
+            grid: { color: css('--border') },
+          },
+        },
+      },
+    };
+    createChart('heatmap', heatmapRef.current, config);
+  }, [heatmap, theme]);
+
+  useEffect(() => {
     if (!bucketsRef.current) return;
     if (!buckets) {
       createChart('buckets', bucketsRef.current, null);
@@ -337,9 +389,7 @@ const StatsPage = ({ theme }) => {
       ? `${from} — ${to}`
       : 'Останні 30 днів';
 
-  const queueLabel = selectedQueue && selectedQueue !== 'union'
-    ? `Черга: ${selectedQueue}`
-    : 'Черга: всі';
+  const queueLabel = selectedQueue ? `Черга: ${selectedQueue}` : 'Черга: —';
 
   const summaryPeriod = summary?.period
     ? `${summary.period.from} — ${summary.period.to} (${summary.period.days_with_data}/${summary.period.days_total} днів)`
@@ -389,7 +439,6 @@ const StatsPage = ({ theme }) => {
               <div className="field">
                 <label htmlFor="queue">Черга</label>
                 <select id="queue" value={selectedQueue} onChange={(e) => setSelectedQueue(e.target.value)}>
-                  <option value="union">Всі черги</option>
                   {queues.map((queue) => (
                     <option key={queue} value={queue}>Черга {queue}</option>
                   ))}
@@ -451,16 +500,18 @@ const StatsPage = ({ theme }) => {
                 </div>
               </div>
               <div className="coverage-progress">
-                <div className="coverage-bar" style={{ width: `${coverage?.coverage_percent || 0}%` }}></div>
+                <div className="coverage-bar" style={{ width: `${coverage?.coverage_percent ?? 0}%` }}></div>
               </div>
               <div className="coverage-meta">
-                <span>{formatPercent(coverage?.coverage_percent || 0)}</span>
+                <span>{coverage ? formatPercent(coverage.coverage_percent) : '—'}</span>
                 <span>{coverage ? `${coverage.days_with_data}/${coverage.expected_days} днів` : '—'}</span>
               </div>
               <div className="missing-dates">
-                {coverage?.missing_dates?.length
-                  ? `Відсутні дати: ${coverage.missing_dates.join(', ')}`
-                  : 'Всі дні присутні в базі'}
+                {coverage === null
+                  ? 'Очікування даних...'
+                  : coverage?.missing_dates?.length
+                    ? `Відсутні дати: ${coverage.missing_dates.join(', ')}`
+                    : 'Всі дні присутні в базі'}
               </div>
             </div>
           )}
@@ -614,26 +665,12 @@ const StatsPage = ({ theme }) => {
                   </>
                 )}
               </div>
-              <div className="heatmap-grid">
-                {heatmap?.hours?.length ? (
-                  heatmap.hours.map((value, hour) => (
-                    <div
-                      key={`hour-${hour}`}
-                      className="heatmap-cell"
-                      style={{ background: heatColor(value) }}
-                    >
-                      <span>{String(hour).padStart(2, '0')}:00</span>
-                      <span>{value.toFixed(1)}%</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="empty-state">Немає даних для теплової мапи</div>
-                )}
+              <div className="chart-box" style={{ height: '260px', display: heatmap?.hours?.length ? 'block' : 'none' }}>
+                <canvas ref={heatmapRef}></canvas>
               </div>
-              <div className="heatmap-legend">
-                <span>Менше відключень</span>
-                <span>Більше відключень</span>
-              </div>
+              {!heatmap?.hours?.length && (
+                <div className="empty-state">Немає даних для теплової мапи</div>
+              )}
             </div>
           )}
 
@@ -817,6 +854,7 @@ const StatsPage = ({ theme }) => {
         .controls-card {
           position: sticky;
           top: 90px;
+          z-index: 10;
         }
 
         .form-grid {
@@ -1027,45 +1065,6 @@ const StatsPage = ({ theme }) => {
           height: 100% !important;
         }
 
-        .heatmap-grid {
-          display: grid;
-          grid-template-columns: repeat(12, minmax(0, 1fr));
-          gap: 8px;
-          margin-top: 12px;
-        }
-
-        .heatmap-grid .empty-state {
-          grid-column: 1 / -1;
-          min-height: 120px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .heatmap-cell {
-          height: 56px;
-          border-radius: 14px;
-          padding: 8px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          color: #ffffff;
-          font-weight: 600;
-          font-size: 0.85rem;
-        }
-
-        .heatmap-cell span {
-          opacity: 0.9;
-        }
-
-        .heatmap-legend {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 8px;
-          color: var(--text-secondary);
-          font-size: 0.8rem;
-        }
-
         .table {
           width: 100%;
           border-collapse: collapse;
@@ -1101,7 +1100,7 @@ const StatsPage = ({ theme }) => {
 
         .coverage-bar {
           height: 100%;
-          background: linear-gradient(90deg, #22c55e, #3b82f6);
+          background: var(--primary);
           width: 0;
           transition: width 0.4s ease;
         }

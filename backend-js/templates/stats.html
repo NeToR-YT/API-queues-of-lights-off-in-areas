@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Статистика відключень — СвітлоUA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+
+      --bg-page: #eff6ff;
+      --bg-card: #ffffff;
+      --bg-element: #f3f4f6;
+      --bg-element-hover: #e5e7eb;
+
+      --text-main: #1f2937;
+      --text-secondary: #6b7280;
+
+      --border: #e5e7eb;
+      --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+
+      --status-green-bg: #dcfce7;
+      --status-green-text: #166534;
+      --status-red-bg: #fee2e2;
+      --status-red-text: #991b1b;
+      --status-warn-bg: #fef3c7;
+      --status-warn-text: #92400e;
+    }
+
+    [data-theme="dark"] {
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+
+      --bg-page: #0f1115;
+      --bg-card: #171a21;
+      --bg-element: #222735;
+      --bg-element-hover: #2b3142;
+
+      --text-main: #e5e7eb;
+      --text-secondary: #9ca3af;
+
+      --border: #2f3747;
+      --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+      --status-green-bg: #064e3b;
+      --status-green-text: #6ee7b7;
+      --status-red-bg: #7f1d1d;
+      --status-red-text: #fca5a5;
+      --status-warn-bg: #78350f;
+      --status-warn-text: #fbbf24;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      min-height: 100vh;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: -20% -10% auto -10%;
+      height: 60vh;
+      background: radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.22), transparent 60%),
+                  radial-gradient(circle at 85% 10%, rgba(16, 185, 129, 0.16), transparent 55%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    [data-theme="dark"] body::before,
+    [data-theme="dark"] body::after {
+      background: radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.18), transparent 60%),
+                  radial-gradient(circle at 85% 10%, rgba(34, 197, 94, 0.12), transparent 55%);
+    }
+
+    .app-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .wide-container {
+      max-width: 1440px;
+    }
+
+    .header {
+      background-color: var(--bg-card);
+      padding: 14px 0;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background 0.3s;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text-main);
+    }
+
+    .logo-icon {
+      width: 26px;
+      height: 26px;
+      transform: rotate(-10deg);
+      color: #f59e0b;
+    }
+
+    .nav-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .nav-link {
+      text-decoration: none;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    .nav-link:hover {
+      color: var(--primary);
+    }
+
+    .theme-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg-element);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .theme-btn:hover {
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .theme-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    .main-content {
+      padding-top: 32px;
+      padding-bottom: 60px;
+      flex: 1;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .hero-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .hero-subtitle {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      max-width: 600px;
+      line-height: 1.6;
+    }
+
+    .hero-badge {
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: var(--bg-element);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+
+    .left-panel,
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      transition: background 0.3s;
+      border: 1px solid transparent;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .card-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .controls-card {
+      position: sticky;
+      top: 90px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    select,
+    input,
+    button {
+      background: var(--bg-element);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .mode-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-btn {
+      background: var(--bg-element);
+      color: var(--text-secondary);
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .mode-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .status-line span {
+      font-weight: 600;
+    }
+
+    .status.success {
+      color: var(--status-green-text);
+    }
+
+    .status.error {
+      color: var(--status-red-text);
+    }
+
+    .badge {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--bg-element);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .emergency-banner {
+      height: 44px;
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 0 16px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      color: #991b1b;
+      box-shadow: 0 2px 10px rgba(239, 68, 68, 0.05);
+      animation: slideDown 0.3s ease-out;
+    }
+
+    [data-theme="dark"] .emergency-banner {
+      background-color: #450a0a;
+      border-color: #7f1d1d;
+      color: #fca5a5;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--bg-element);
+      border-radius: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card .value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .stat-card .desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .summary-lists {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .mini-list {
+      list-style: none;
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .mini-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: var(--bg-element);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+
+    .chart-box {
+      height: 320px;
+    }
+
+    .chart-box canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .heatmap-cell {
+      height: 56px;
+      border-radius: 14px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .heatmap-cell span {
+      opacity: 0.9;
+    }
+
+    .heatmap-legend {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .table th,
+    .table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table th {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table tbody tr:hover {
+      background: var(--bg-element);
+    }
+
+    .coverage-progress {
+      width: 100%;
+      height: 12px;
+      background: var(--bg-element);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .coverage-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #3b82f6);
+      width: 0;
+      transition: width 0.4s ease;
+    }
+
+    .coverage-meta {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .missing-dates {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .queue-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .queue-card {
+      padding: 14px;
+      border-radius: 14px;
+      background: var(--bg-element);
+      border: 1px solid var(--border);
+    }
+
+    .queue-card h4 {
+      font-size: 1rem;
+      margin-bottom: 6px;
+    }
+
+    .queue-periods {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .period-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--text-main);
+    }
+
+    .empty-state {
+      padding: 20px;
+      background: var(--bg-element);
+      border-radius: 16px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding: 30px 0 40px;
+      color: var(--text-secondary);
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-content {
+      background: var(--bg-card);
+      color: var(--text-main);
+      padding: 28px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 420px;
+      position: relative;
+      box-shadow: var(--shadow);
+      animation: scaleUp 0.2s ease-out;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+
+    .modal-body h3 {
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .modal-desc {
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .contact-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--bg-element);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .contact-item:hover {
+      background: var(--bg-element-hover);
+      color: var(--primary);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes scaleUp {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1100px) {
+      .grid-layout {
+        grid-template-columns: 320px minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .grid-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .controls-card {
+        position: static;
+      }
+
+      .summary-lists {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-badge {
+        align-self: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+    <header class="header">
+      <div class="container header-content">
+        <div class="logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M13.2 2 4 13.1h6.2L8.8 22 20 9h-6.2z"></path>
+          </svg>
+          <span>СвітлоUA</span>
+        </div>
+        <div class="nav-wrapper">
+          <nav class="nav">
+            <button class="nav-link" data-modal="github">Про проєкт</button>
+            <button class="nav-link" data-modal="contacts">Контакти</button>
+            <button class="nav-link" data-modal="support">Підтримка</button>
+          </nav>
+          <button class="theme-btn" id="theme-btn" title="Змінити тему">
+            <svg class="theme-icon" id="theme-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container wide-container main-content">
+      <section class="hero">
+        <div>
+          <div class="hero-title">Статистика відключень</div>
+          <div class="hero-subtitle">
+            Порівнюйте надійність, дивіться теплову мапу відключень і аналізуйте
+            черги за обраний період. Усі метрики рахуються напряму з історії.
+          </div>
+        </div>
+        <div class="hero-badge" id="hero-status">Останні 30 днів</div>
+      </section>
+
+      <div class="emergency-banner" id="emergency-banner">
+        <strong>Увага:</strong>
+        <span id="emergency-text">Аварійні відключення активні. Дані можуть бути нестабільними.</span>
+      </div>
+
+      <div class="grid-layout">
+        <div class="left-panel">
+          <div class="card controls-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Параметри</div>
+                <div class="card-subtitle">Оберіть місто, чергу та режим</div>
+              </div>
+              <span class="badge" id="queue-label">Черга: всі</span>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="city">Місто</label>
+                <select id="city"></select>
+              </div>
+              <div class="field">
+                <label for="queue">Черга</label>
+                <select id="queue"></select>
+              </div>
+              <div class="field">
+                <label>Режим</label>
+                <div class="mode-toggle">
+                  <button class="mode-btn active" id="mode-range">Діапазон</button>
+                  <button class="mode-btn" id="mode-day">Конкретна дата</button>
+                </div>
+              </div>
+              <div class="field" id="range-inputs">
+                <label>Період</label>
+                <div class="mode-toggle" style="grid-template-columns: 1fr 1fr;">
+                  <input type="date" id="from" />
+                  <input type="date" id="to" />
+                </div>
+              </div>
+              <div class="field" id="day-input" style="display:none;">
+                <label for="specific-date">Дата</label>
+                <input type="date" id="specific-date" />
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" id="apply">Показати статистику</button>
+              <button class="btn-secondary" id="reload-queues">Оновити черги</button>
+              <div class="status-line">
+                <span>Статус:</span>
+                <span id="status" class="status">готово</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" data-mode="range">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Покриття даних</div>
+                <div class="card-subtitle">Скільки днів у базі за період</div>
+              </div>
+            </div>
+            <div class="coverage-progress">
+              <div class="coverage-bar" id="coverage-bar"></div>
+            </div>
+            <div class="coverage-meta">
+              <span id="coverage-percent">—%</span>
+              <span id="coverage-days">—</span>
+            </div>
+            <div class="missing-dates" id="coverage-missing">—</div>
+          </div>
+        </div>
+
+        <div class="right-panel">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Зведення</div>
+                <div class="card-subtitle" id="summary-period">—</div>
+              </div>
+              <span class="badge" id="summary-queue">—</span>
+            </div>
+
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="label">Надійність</div>
+                <div class="value" id="stat-reliability">—</div>
+                <div class="desc">% часу зі світлом</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Середнє без світла</div>
+                <div class="value" id="stat-avg">—</div>
+                <div class="desc">год/день</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Загальні години</div>
+                <div class="value" id="stat-total">—</div>
+                <div class="desc">годин за період</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Серії відключень</div>
+                <div class="value" id="stat-blocks">—</div>
+                <div class="desc">блоків/день</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Найдовша темна серія</div>
+                <div class="value" id="stat-blackout">—</div>
+                <div class="desc">годин поспіль</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Аварійні дні</div>
+                <div class="value" id="stat-emergency">—</div>
+                <div class="desc">% від днів</div>
+              </div>
+            </div>
+
+            <div class="summary-lists">
+              <div>
+                <div class="card-title" style="font-size: 1rem;">Найгірші дні</div>
+                <ul class="mini-list" id="worst-days"></ul>
+              </div>
+              <div>
+                <div class="card-title" style="font-size: 1rem;">Найкращі дні</div>
+                <ul class="mini-list" id="best-days"></ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" data-mode="day" style="display:none;">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Графік дня</div>
+                <div class="card-subtitle" id="day-date">—</div>
+              </div>
+              <span class="badge" id="day-status">—</span>
+            </div>
+            <div class="queue-grid" id="day-queues"></div>
+          </div>
+
+          <div class="card" data-mode="range">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Часовий ряд</div>
+                <div class="card-subtitle">Години відключень по днях</div>
+              </div>
+            </div>
+            <div class="chart-box">
+              <canvas id="chart-timeseries"></canvas>
+            </div>
+          </div>
+
+          <div class="card" data-mode="range">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Теплова мапа доби</div>
+                <div class="card-subtitle">% днів з відключенням у кожну годину</div>
+              </div>
+            </div>
+            <div class="stat-grid" id="typical-window"></div>
+            <div class="heatmap-grid" id="heatmap-grid"></div>
+            <div class="heatmap-legend">
+              <span>Менше відключень</span>
+              <span>Більше відключень</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Дні тижня</div>
+                <div class="card-subtitle">Середня тривалість відключень</div>
+              </div>
+            </div>
+            <div class="chart-box">
+              <canvas id="chart-weekday"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Періоди доби</div>
+                <div class="card-subtitle">Ранок, день, вечір, ніч</div>
+              </div>
+            </div>
+            <div class="chart-box">
+              <canvas id="chart-buckets"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Черги</div>
+                <div class="card-subtitle">Порівняння всіх черг у місті</div>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Черга</th>
+                  <th>Сер. год/день</th>
+                  <th>Надійність</th>
+                  <th>Днів</th>
+                </tr>
+              </thead>
+              <tbody id="queue-table"></tbody>
+            </table>
+          </div>
+
+          <div class="card" data-mode="range">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Рейтинг міст</div>
+                <div class="card-subtitle">Надійність за період</div>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Місто</th>
+                  <th>Надійність</th>
+                  <th>Сер. год/день</th>
+                  <th>Днів</th>
+                </tr>
+              </thead>
+              <tbody id="cities-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      СвітлоUA • статистика відключень для аналізу та планування
+    </footer>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-content" role="dialog" aria-modal="true">
+      <button class="modal-close" id="modal-close">✕</button>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      mode: "range",
+      charts: {},
+      rangeData: null,
+      dayData: null,
+    };
+
+    const MODAL_CONTENT = {
+      github: `
+        <h3>Перехід на GitHub</h3>
+        <p class="modal-desc">Ви переходите на сторінку з вихідним кодом проєкту. Бажаєте продовжити?</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-close>Скасувати</button>
+          <a class="btn-primary" href="https://github.com/Nadlaf/LightUA" target="_blank" rel="noopener noreferrer">Перейти</a>
+        </div>
+      `,
+      contacts: `
+        <h3>Зв'язок з розробниками</h3>
+        <p class="modal-desc">Маєте пропозиції чи знайшли помилку? Пишіть нам:</p>
+        <div class="contact-list">
+          <a class="contact-item" href="https://t.me/faldanchik" target="_blank" rel="noreferrer">@faldanchik</a>
+          <a class="contact-item" href="https://t.me/NeToR_1" target="_blank" rel="noreferrer">@NeToR_1</a>
+        </div>
+      `,
+      support: `
+        <h3>Функція в розробці</h3>
+        <p class="modal-desc">Сторінка підтримки вже скоро.</p>
+        <div class="modal-actions">
+          <button class="btn-primary" data-close>Зрозуміло</button>
+        </div>
+      `,
+    };
+
+    function openModal(key) {
+      const overlay = $("modal-overlay");
+      const body = $("modal-body");
+      body.innerHTML = MODAL_CONTENT[key] || "";
+      overlay.classList.add("active");
+    }
+
+    function closeModal() {
+      $("modal-overlay").classList.remove("active");
+    }
+
+    function setTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem("app-theme", theme);
+      updateThemeIcon(theme);
+      redrawCharts();
+    }
+
+    function updateThemeIcon(theme) {
+      const icon = $("theme-icon");
+      if (theme === "dark") {
+        icon.innerHTML = "<path d=\"M12 4a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1zm6 7a1 1 0 0 1 1 1h2a1 1 0 1 1 0 2h-2a1 1 0 0 1-1-1 1 1 0 0 1 1-1zM4 12a1 1 0 0 1 1-1H3a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1 1 1 0 0 1-1 1zm10.95-5.95a1 1 0 0 1 1.41 0l1.42 1.41a1 1 0 0 1-1.42 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zM6.64 17.36a1 1 0 0 1 1.41 0l1.42 1.41a1 1 0 1 1-1.42 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z\"></path>";
+      } else {
+        icon.innerHTML = "<path d=\"M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z\"></path>";
+      }
+    }
+
+    function setStatus(text, kind) {
+      const el = $("status");
+      el.textContent = text;
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+
+    function formatDate(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function defaultRange() {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(to.getDate() - 30);
+      return { from: formatDate(from), to: formatDate(to) };
+    }
+
+    function formatHours(value) {
+      if (value === null || value === undefined || Number.isNaN(value)) return "—";
+      return Number(value).toFixed(2);
+    }
+
+    function formatPercent(value) {
+      if (value === null || value === undefined || Number.isNaN(value)) return "—";
+      return Number(value).toFixed(2) + "%";
+    }
+
+    function minutesToHours(minutes) {
+      if (!minutes) return 0;
+      return Math.round((minutes / 60) * 100) / 100;
+    }
+
+    function updateSummary(data) {
+      if (!data) return;
+      const period = data.period;
+      $("summary-period").textContent = `${period.from} — ${period.to} (${period.days_with_data}/${period.days_total} днів)`;
+      const queueLabel = !data.queue || data.queue === "union" ? "Черга: всі" : `Черга: ${data.queue}`;
+      $("summary-queue").textContent = queueLabel;
+
+      $("stat-reliability").textContent = formatPercent(data.reliability_percent);
+      $("stat-avg").textContent = formatHours(data.avg_off_hours_per_day);
+      $("stat-total").textContent = formatHours(data.total_off_hours);
+      $("stat-blocks").textContent = formatHours(data.avg_blocks_per_day);
+      $("stat-blackout").textContent = formatHours(minutesToHours(data.longest_blackout_streak_minutes));
+      $("stat-emergency").textContent = formatPercent(data.emergency_rate_percent);
+
+      updateList($("worst-days"), data.top_worst_days);
+      updateList($("best-days"), data.top_best_days);
+    }
+
+    function updateList(el, items) {
+      el.innerHTML = "";
+      if (!items || items.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "—";
+        el.appendChild(li);
+        return;
+      }
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span>${item.date}</span><span>${formatHours(item.off_hours)} год</span>`;
+        el.appendChild(li);
+      });
+    }
+
+    function updateCoverage(data) {
+      if (!data) return;
+      const percent = data.coverage_percent ?? 0;
+      $("coverage-bar").style.width = `${percent}%`;
+      $("coverage-percent").textContent = formatPercent(percent);
+      $("coverage-days").textContent = `${data.days_with_data}/${data.expected_days} днів`;
+      if (data.missing_dates && data.missing_dates.length > 0) {
+        $("coverage-missing").textContent = `Відсутні дати: ${data.missing_dates.join(", ")}`;
+      } else {
+        $("coverage-missing").textContent = "Всі дні присутні в базі";
+      }
+    }
+
+    function updateQueuesTable(queues) {
+      const body = $("queue-table");
+      body.innerHTML = "";
+      if (!queues || queues.length === 0) {
+        body.innerHTML = "<tr><td colspan=\"4\">Дані відсутні</td></tr>";
+        return;
+      }
+      queues.forEach((q) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${q.queue}</td>
+          <td>${formatHours(q.avg_off_hours)}</td>
+          <td>${formatPercent(q.reliability_percent)}</td>
+          <td>${q.days_with_data}</td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    function updateCitiesTable(cities) {
+      const body = $("cities-table");
+      body.innerHTML = "";
+      if (!cities || cities.length === 0) {
+        body.innerHTML = "<tr><td colspan=\"4\">Дані відсутні</td></tr>";
+        return;
+      }
+      cities.forEach((c) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${c.city_name}</td>
+          <td>${formatPercent(c.reliability_percent)}</td>
+          <td>${formatHours(c.avg_off_hours_per_day)}</td>
+          <td>${c.days_with_data}</td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    function updateHeatmap(data) {
+      const grid = $("heatmap-grid");
+      grid.innerHTML = "";
+      if (!data || !Array.isArray(data.hours)) {
+        grid.innerHTML = "<div class=\"empty-state\">Немає даних для теплової мапи</div>";
+        return;
+      }
+      data.hours.forEach((value, hour) => {
+        const cell = document.createElement("div");
+        cell.className = "heatmap-cell";
+        cell.style.background = heatColor(value);
+        cell.innerHTML = `<span>${String(hour).padStart(2, "0")}:00</span><span>${value.toFixed(1)}%</span>`;
+        grid.appendChild(cell);
+      });
+    }
+
+    function updateTypicalWindow(data) {
+      const wrap = $("typical-window");
+      wrap.innerHTML = "";
+      if (!data || !data.typical_window) return;
+      const t = data.typical_window;
+      const items = [
+        { label: "Перший викл.", value: t.avg_first_off || "—" },
+        { label: "Останнє вкл.", value: t.avg_last_on || "—" },
+        { label: "Домінантний старт", value: t.avg_dominant_start || "—" },
+        { label: "Домінантний кінець", value: t.avg_dominant_end || "—" },
+      ];
+      items.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "stat-card";
+        card.innerHTML = `<div class=\"label\">${item.label}</div><div class=\"value\">${item.value}</div>`;
+        wrap.appendChild(card);
+      });
+      const meta = document.createElement("div");
+      meta.className = "stat-card";
+      meta.innerHTML = `<div class=\"label\">Днів із відключеннями</div><div class=\"value\">${t.days_with_outage}</div>`;
+      wrap.appendChild(meta);
+    }
+
+    function heatColor(value) {
+      const t = Math.max(0, Math.min(100, value)) / 100;
+      const light = 85 - t * 50;
+      return `hsl(215, 80%, ${light}%)`;
+    }
+
+    function buildQuery() {
+      const city = $("city").value;
+      const queue = $("queue").value;
+      const fallback = defaultRange();
+      const from = $("from").value || fallback.from;
+      const to = $("to").value || fallback.to;
+      $("from").value = from;
+      $("to").value = to;
+      const params = new URLSearchParams({ channel_id: city, from, to });
+      if (queue && queue !== "union") params.set("queue", queue);
+      return params;
+    }
+
+    function buildDayQuery() {
+      const city = $("city").value;
+      const queue = $("queue").value;
+      const fallback = defaultRange();
+      const date = $("specific-date").value || fallback.to;
+      $("specific-date").value = date;
+      const params = new URLSearchParams({ channel_id: city, date });
+      if (queue && queue !== "union") params.set("queue", queue);
+      return params;
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = null;
+      }
+      if (!res.ok) {
+        const msg = data && data.error ? data.error : "Помилка запиту";
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    function updateHero(from, to) {
+      $("hero-status").textContent = from === to ? `Дата ${from}` : `${from} — ${to}`;
+    }
+
+    async function loadRange() {
+      setStatus("Завантаження...", "");
+      const params = buildQuery();
+      const queueValue = $("queue").value;
+      $("queue-label").textContent = queueValue && queueValue !== "union" ? `Черга: ${queueValue}` : "Черга: всі";
+
+      try {
+        const [summary, timeseries, heatmap, weekday, buckets, queues, cities, coverage] = await Promise.all([
+          fetchJson(`/api/stats/summary?${params}`),
+          fetchJson(`/api/stats/timeseries?${params}`),
+          fetchJson(`/api/stats/heatmap?${params}`),
+          fetchJson(`/api/stats/weekday?${params}`),
+          fetchJson(`/api/stats/buckets?${params}`),
+          fetchJson(`/api/stats/queues?${params}`),
+          fetchJson(`/api/stats/cities?from=${params.get("from")}&to=${params.get("to")}`),
+          fetchJson(`/api/stats/coverage?${params}`),
+        ]);
+
+        summary.queue = queueValue !== "union" ? queueValue : "union";
+        updateSummary(summary);
+        updateCoverage(coverage);
+        updateHeatmap(heatmap);
+        updateTypicalWindow(heatmap);
+        updateQueuesTable(queues.queues);
+        updateCitiesTable(cities.cities);
+
+        state.rangeData = { summary, timeseries, weekday, buckets };
+        renderTimeseries(timeseries.points || []);
+        renderWeekday(weekday.weekdays || []);
+        renderBuckets(buckets);
+
+        updateHero(params.get("from"), params.get("to"));
+        setStatus("Готово", "success");
+      } catch (err) {
+        setStatus(err.message || "Помилка", "error");
+      }
+    }
+
+    async function loadDay() {
+      setStatus("Завантаження...", "");
+      const params = buildDayQuery();
+      const range = new URLSearchParams({ channel_id: params.get("channel_id"), from: params.get("date"), to: params.get("date") });
+      const queueValue = $("queue").value;
+      if (queueValue && queueValue !== "union") range.set("queue", queueValue);
+
+      try {
+        const [summary, buckets, queues, day] = await Promise.all([
+          fetchJson(`/api/stats/summary?${range}`),
+          fetchJson(`/api/stats/buckets?${range}`),
+          fetchJson(`/api/stats/queues?${range}`),
+          fetchJson(`/api/stats/day?${params}`),
+        ]);
+
+        summary.queue = queueValue !== "union" ? queueValue : "union";
+        updateSummary(summary);
+        updateQueuesTable(queues.queues);
+        renderBuckets(buckets);
+        renderWeekday([]);
+        renderTimeseries([]);
+        updateHero(params.get("date"), params.get("date"));
+        updateDaySchedule(day);
+
+        setStatus("Готово", "success");
+      } catch (err) {
+        setStatus(err.message || "Помилка", "error");
+      }
+    }
+
+    function updateDaySchedule(day) {
+      $("day-date").textContent = day ? day.date : "—";
+      $("day-status").textContent = day && day.emergency_outages ? "Аварійно" : "Звичайний";
+      const list = $("day-queues");
+      list.innerHTML = "";
+      if (!day || !day.queues || day.queues.length === 0) {
+        list.innerHTML = "<div class=\"empty-state\">Немає даних за цю дату</div>";
+        return;
+      }
+      day.queues.forEach((queue) => {
+        const card = document.createElement("div");
+        card.className = "queue-card";
+        const periods = queue.periods && queue.periods.length ? queue.periods : ["—"];
+        card.innerHTML = `
+          <h4>Черга ${queue.queue}</h4>
+          <div class=\"card-subtitle\">Без світла: ${formatHours(queue.off_hours)} год</div>
+          <div class=\"queue-periods\">${periods.map((p) => `<span class=\"period-pill\">${p}</span>`).join("")}</div>
+        `;
+        list.appendChild(card);
+      });
+
+      const banner = $("emergency-banner");
+      if (day.emergency_outages) {
+        banner.style.display = "flex";
+      } else {
+        banner.style.display = "none";
+      }
+    }
+
+    function renderTimeseries(points) {
+      const ctx = $("chart-timeseries");
+      const labels = points.map((p) => p.date.slice(5));
+      const data = points.map((p) => p.off_hours);
+      const config = {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Години без світла",
+              data,
+              borderColor: getCss("--primary"),
+              backgroundColor: "rgba(59, 130, 246, 0.2)",
+              tension: 0.3,
+              fill: true,
+              pointRadius: 3,
+            },
+          ],
+        },
+        options: baseChartOptions(),
+      };
+      updateChart("timeseries", ctx, config);
+    }
+
+    function renderWeekday(weekdays) {
+      const ctx = $("chart-weekday");
+      const labels = weekdays.map((w) => w.name);
+      const data = weekdays.map((w) => w.avg_off_hours);
+      const config = {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Сер. год/день",
+              data,
+              backgroundColor: "rgba(59, 130, 246, 0.45)",
+              borderRadius: 8,
+            },
+          ],
+        },
+        options: baseChartOptions(),
+      };
+      updateChart("weekday", ctx, config);
+    }
+
+    function renderBuckets(buckets) {
+      const ctx = $("chart-buckets");
+      if (!buckets) {
+        updateChart("buckets", ctx, null);
+        return;
+      }
+      const labels = ["Ранок", "День", "Вечір", "Ніч"];
+      const data = [buckets.morning, buckets.day, buckets.evening, buckets.night];
+      const config = {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Сер. год/день",
+              data,
+              backgroundColor: [
+                "rgba(59, 130, 246, 0.45)",
+                "rgba(34, 197, 94, 0.45)",
+                "rgba(251, 146, 60, 0.45)",
+                "rgba(99, 102, 241, 0.45)",
+              ],
+              borderRadius: 8,
+            },
+          ],
+        },
+        options: baseChartOptions(),
+      };
+      updateChart("buckets", ctx, config);
+    }
+
+    function updateChart(key, canvas, config) {
+      if (state.charts[key]) {
+        state.charts[key].destroy();
+        state.charts[key] = null;
+      }
+      if (!config) return;
+      state.charts[key] = new Chart(canvas, config);
+    }
+
+    function baseChartOptions() {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false,
+            labels: { color: getCss("--text-secondary") },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: getCss("--text-secondary") },
+            grid: { color: getCss("--border") },
+          },
+          y: {
+            ticks: { color: getCss("--text-secondary") },
+            grid: { color: getCss("--border") },
+          },
+        },
+      };
+    }
+
+    function getCss(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function redrawCharts() {
+      if (state.rangeData) {
+        renderTimeseries(state.rangeData.timeseries.points || []);
+        renderWeekday(state.rangeData.weekday.weekdays || []);
+        renderBuckets(state.rangeData.buckets);
+      }
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      $("mode-range").classList.toggle("active", mode === "range");
+      $("mode-day").classList.toggle("active", mode === "day");
+      $("range-inputs").style.display = mode === "range" ? "block" : "none";
+      $("day-input").style.display = mode === "day" ? "block" : "none";
+
+      if (mode === "range") {
+        $("emergency-banner").style.display = "none";
+      }
+
+      document.querySelectorAll("[data-mode]").forEach((el) => {
+        el.style.display = el.getAttribute("data-mode") === mode ? "block" : "none";
+      });
+    }
+
+    async function loadCities() {
+      try {
+        const data = await fetchJson("/api/cities");
+        const select = $("city");
+        select.innerHTML = "";
+        data.cities.forEach((city) => {
+          const option = document.createElement("option");
+          option.value = city.id;
+          option.textContent = city.name;
+          select.appendChild(option);
+        });
+      } catch (err) {
+        setStatus("Не вдалося завантажити міста", "error");
+      }
+    }
+
+    async function reloadQueues() {
+      const city = $("city").value;
+      if (!city) return;
+      const params = new URLSearchParams();
+      params.set("channel_id", city);
+      if (state.mode === "range") {
+        params.set("from", $("from").value);
+        params.set("to", $("to").value);
+      } else {
+        const date = $("specific-date").value;
+        params.set("from", date);
+        params.set("to", date);
+      }
+
+      try {
+        const data = await fetchJson(`/api/stats/queues-list?${params}`);
+        const select = $("queue");
+        const current = select.value;
+        select.innerHTML = "";
+        const optionAll = document.createElement("option");
+        optionAll.value = "union";
+        optionAll.textContent = "Всі черги";
+        select.appendChild(optionAll);
+
+        (data.available_queues || []).forEach((queue) => {
+          const option = document.createElement("option");
+          option.value = queue;
+          option.textContent = `Черга ${queue}`;
+          select.appendChild(option);
+        });
+
+        if (current) select.value = current;
+      } catch (err) {
+        setStatus("Не вдалося завантажити черги", "error");
+      }
+    }
+
+    function initDates() {
+      const range = defaultRange();
+      $("from").value = range.from;
+      $("to").value = range.to;
+      $("specific-date").value = range.to;
+      updateHero(range.from, range.to);
+    }
+
+    function initEvents() {
+      document.querySelectorAll("[data-modal]").forEach((btn) => {
+        btn.addEventListener("click", () => openModal(btn.dataset.modal));
+      });
+      $("modal-overlay").addEventListener("click", (e) => {
+        if (e.target.id === "modal-overlay" || e.target.id === "modal-close" || e.target.dataset.close !== undefined) {
+          closeModal();
+        }
+      });
+      $("theme-btn").addEventListener("click", () => {
+        const current = localStorage.getItem("app-theme") || "light";
+        setTheme(current === "light" ? "dark" : "light");
+      });
+      $("mode-range").addEventListener("click", () => setMode("range"));
+      $("mode-day").addEventListener("click", () => setMode("day"));
+      $("apply").addEventListener("click", () => {
+        state.mode === "range" ? loadRange() : loadDay();
+      });
+      $("reload-queues").addEventListener("click", reloadQueues);
+      $("city").addEventListener("change", reloadQueues);
+      $("queue").addEventListener("change", () => {
+        const val = $("queue").value;
+        $("queue-label").textContent = val && val !== "union" ? `Черга: ${val}` : "Черга: всі";
+      });
+    }
+
+    async function bootstrap() {
+      initDates();
+      initEvents();
+      const savedTheme = localStorage.getItem("app-theme") || "light";
+      setTheme(savedTheme);
+      await loadCities();
+      await reloadQueues();
+      await loadRange();
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

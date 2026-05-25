@@ -34,6 +34,9 @@ const SCHEDULE_KEYWORDS = [
   "графіки відключень світла",
   "графік погодинних вимкнень",
   "графіки погодинних вимкнень",
+  "графіки погодинних відключень",
+  "графік погодинних відключень",
+  "погодинних відключень",
   "оновлений графік",
   "оновлені графіки",
   "гоп",
@@ -64,7 +67,11 @@ export function isPowerOutageSchedule(text: string): boolean {
 export function hasQueueSchedule(text: string): boolean {
   if (!text) return false;
   const t = normalizeDashes(text);
-  return /\b[1-6]\.[12]\s*:\s*\d{1,2}[:.:]\d{2}/.test(t);
+  // Same-line format: "5.1: 06:00-08:00"
+  if (/\b[1-6]\.[12]\s*:\s*\d{1,2}[:.:]\d{2}/.test(t)) return true;
+  // Multi-line format: "Черга 5.1:" header, time on next line
+  if (/(?:черга|група)\s+[1-6]\.[12]\s*:/i.test(t)) return true;
+  return false;
 }
 
 export function isEmergencyOutageActive(text: string): boolean {
@@ -181,12 +188,26 @@ export function parseSchedule(text: string): Record<string, string[]> {
     let line = rawLine.trim();
     if (!line) continue;
 
-    line = line.replace(/[🔹❗✅➡️💡⚠️🗓📍⚡🏆⌛️]+/g, "").trim();
-    line = line.replace(/^[\s\-*•●○■▪∙⁃‣•▪▫·●○■□]+/, "").trim();
+    // Remove all emoji (broad Unicode emoji ranges)
+    line = line.replace(/[\u{1F000}-\u{1FFFF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, "").trim();
+    line = line.replace(/^[\s\-*•●○■▪∙⁃‣•▪▫·●○■□➖]+/, "").trim();
+
+    if (!line) continue;
 
     const queueHeader = line.match(/(?:черга|група)\s*\[?\s*([0-6](?:\.[12])?)\s*\]?/i);
     if (queueHeader) {
       currentQueue = queueHeader[1]!.trim();
+      // Check for inline time after the queue label on the same line
+      const afterLabel = line.slice(line.indexOf(queueHeader[0]!) + queueHeader[0]!.length)
+        .replace(/^[\s:]+/, "").trim();
+      if (afterLabel && afterLabel !== "-") {
+        const periods = parseHourPeriods(afterLabel);
+        if (periods.length > 0) {
+          schedule[currentQueue] = periods;
+          currentQueue = null;
+        }
+      }
+      continue;
     }
 
     const graphMatch = line.match(/графік\s*:?\s*(.*)$/i);
@@ -194,6 +215,21 @@ export function parseSchedule(text: string): Record<string, string[]> {
       const periods = parseHourPeriods(graphMatch[1]!);
       if (periods.length > 0) schedule[currentQueue] = periods;
       continue;
+    }
+
+    // Time on a separate line after a queue header (e.g. "🕒 06:00-08:00" or "🕒 -")
+    if (currentQueue) {
+      if (line === "-") {
+        // No outage for this queue — skip (all-day power)
+        currentQueue = null;
+        continue;
+      }
+      const periods = parseHourPeriods(line);
+      if (periods.length > 0) {
+        schedule[currentQueue] = periods;
+        currentQueue = null;
+        continue;
+      }
     }
 
     const lineMatch = line.match(/^([0-6](?:\.[12])?)\s*[:–\-]?\s*(\d{1,2}(?::\d{2})?.*)$/);
