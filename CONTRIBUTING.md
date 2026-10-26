@@ -4,11 +4,11 @@
 робочі гілки + **теги як історія версій**.
 
 ```
-feature/*, fix/*, chore/* ──PR (squash)──▶ develop ──▶ staging
+feature/*, fix/*, chore/* ──squash──▶ develop ──▶ staging
                                               │
                          release/X.Y.Z ◀──────┘  (стабілізація релізу)
                                │
-                               └──PR (merge)──▶ main ──тег vX.Y.Z──▶ прод
+                               └──merge──▶ main ──тег vX.Y.Z──▶ прод
                                                  │
 hotfix/* ── від main, лише якщо прод горить ─────┘  (потім main → develop)
 ```
@@ -22,7 +22,7 @@ hotfix/* ── від main, лише якщо прод горить ───�
 | `main` | те, що зараз у проді; кожен реліз — тег на ній | прод (за тегом) |
 | `develop` | усе прийняте й готове до наступного релізу | staging |
 
-У `main` і `develop` не комітимо напряму і ніколи не робимо force-push — лише через PR.
+У `main` і `develop` не комітимо напряму і ніколи не робимо force-push — лише злиттям робочих гілок.
 
 ### Робочі (короткоживучі)
 
@@ -79,13 +79,20 @@ chore(deploy): run backend container as non-root
 
 ## Злиття
 
-| Що → куди | Як | Чому |
-|---|---|---|
-| `feature/` `fix/` `chore/` → `develop` | **squash merge**; заголовок PR — у форматі коміту | одна зміна = один коміт = один рядок у CHANGELOG |
-| `release/` `hotfix/` → `main` | **merge commit** (не squash) | `main` і `develop` мають спільну історію — зворотне злиття не конфліктує |
-| `main` → `develop` після релізу/хотфіксу | **merge commit** | повертає версію й фікси в `develop` |
+Поки над проєктом працює один розробник, **PR не використовуємо**: гілки зливаються
+локально й пушаться. зливати й пушити — **лише з явної згоди власника** у поточному
+повідомленні. Коли з'явиться другий учасник — повертаємось до PR (див. «Захист гілок»).
 
-Перед злиттям: CI зелений, PR прорев'ю­ений.
+| Що → куди | Команда | Чому |
+|---|---|---|
+| `feature/` `fix/` `chore/` → `develop` | `git merge --squash <гілка>` + коміт у форматі Conventional Commits | одна зміна = один коміт = один рядок у CHANGELOG |
+| те саме, але гілка — свідомо розбита серія комітів | `git merge --no-ff <гілка>` | зберегти осмислені коміти (напр. безпека окремо від деплою) |
+| `release/` `hotfix/` → `main` | `git merge --no-ff <гілка>` | `main` і `develop` мають спільну історію — зворотне злиття не конфліктує |
+| `main` → `develop` після релізу/хотфіксу | `git merge --no-ff main` | повертає версію й фікси в `develop` |
+
+Перед злиттям — перевірки локально (збірка, лінтери, тести); CI після пушу в `develop`
+і `main` — друга лінія. Після squash-злиття робочу гілку видаляємо через `git branch -D`
+(git не вважає її злитою). 
 
 ## Релізи
 
@@ -95,7 +102,7 @@ chore(deploy): run backend container as non-root
 1. `git switch -c release/0.9.0 develop`
 2. Підняти версію (`package.json` / `pyproject.toml`), оновити `CHANGELOG.md`.
    У release-гілку — **лише стабілізаційні фікси**, нових фіч нема.
-3. PR `release/0.9.0` → `main`, merge commit.
+3. `git switch main && git merge --no-ff release/0.9.0`
 4. Анотований тег на `main` + GitHub Release з нотатками:
    `git tag -a v0.9.0 -m "v0.9.0"` → `git push origin v0.9.0`
 5. `main` → `develop` (merge commit).
@@ -119,7 +126,7 @@ chore(deploy): run backend container as non-root
 Лише коли прод зламаний **і** в `develop` вже лежить неготове до релізу. Інакше — звичайний
 `fix/` через `develop` і наступний реліз.
 
-`hotfix/<опис>` від `main` → PR → `main` → тег patch (`v0.9.1`) → `main` → `develop`.
+`hotfix/<опис>` від `main` → `--no-ff` у `main` → тег patch (`v0.9.1`) → `main` → `develop`.
 
 ## Середовища
 
@@ -141,13 +148,15 @@ chore(deploy): run backend container as non-root
 
 ## Захист гілок на GitHub
 
-Settings → Branches (або Rulesets) для `main` і `develop`:
+Settings → Rules → Rulesets (або Settings → Branches) для `main` і `develop`:
 
-- Require a pull request before merging
-- Require status checks to pass (CI)
-- Block force pushes, restrict deletions
-- Required approvals: **0** — GitHub не дає автору схвалити власний PR, а PR-и
-  відкриваються від імені Oleksiy. Рев'ю — змістовне, у коментарях, мерж — власником.
+- Block force pushes
+- Restrict deletions
+
+«Require a pull request» і «Require status checks» **не вмикаємо**, поки працюємо без PR:
+інакше GitHub відхилятиме прямий push у ці гілки. Вмикаємо разом із переходом на PR,
+коли з'явиться другий учасник (approvals = 0, якщо PR-и відкриває той самий власник —
+GitHub не дає схвалити власний PR).
 
 ---
 
@@ -174,9 +183,10 @@ git push origin main
 git branch -f develop main
 git push --force-with-lease origin develop
 
-# 4. GitHub: Default branch → main; захист main і develop (див. вище)
+# 4. GitHub: Settings → General → Default branch → кнопка ⇄ «Switch to another branch»
+#    (НЕ олівець — він перейменовує back) → main; захист main і develop (див. вище)
 
-# 5. Поточна робота: PR chore/deploy-beta → develop (squash)
+# 5. Поточна робота: chore/deploy-beta → develop (--no-ff: серія з осмислених комітів)
 # 6. Реліз v0.9.0 (розділ «Релізи»); сервер переходить з гілки production на тег v0.9.0
 
 # 7. Скрипт міграції читає origin/mongodb → перевести на archive/mongodb
