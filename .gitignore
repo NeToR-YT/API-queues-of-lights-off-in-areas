@@ -1,9 +1,34 @@
+# ── Секрети ─────────────────────────────────────────────
+# Ніколи не комітити. Шаблони — у *.example-файлах поруч.
+.env
+.env.*
+!.env.example
+secrets/
+*.session
+backend-js/config.json
+
+# ── Node (backend-js, frontend) ─────────────────────────
 node_modules/
-backend-js/node_modules/
+dist/
+*.log
+.DS_Store
+
+# ── Артефакти старого парсера ───────────────────────────
 backend-js/schedule_today.json
 backend-js/schedule_tomorrow.json
 backend-js/schedule_history_*.json
-backend-js/config.json
-backend-js/.env
-backend-js/.DS_Store
-backend-js/*.log
+
+# ── Python (parser/, platform/) ────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── IDE ─────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml

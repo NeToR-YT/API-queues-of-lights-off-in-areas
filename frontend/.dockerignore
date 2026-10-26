@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+
+# Мертві файли Python-прототипу: Vite копіює public/ у збірку як є,
+# тож без цього вихідний код прототипу й старі дані роздавались би публічно.
+public/backend/
+public/schedule_*.json

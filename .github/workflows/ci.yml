@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Джоби парсера й платформи (обидва Python) вмикаються самі, щойно в каталозі
+  # з'явиться pyproject.toml. Поки код не написаний — пропускаються, CI лишається зеленим.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      parser: ${{ steps.check.outputs.parser }}
+      platform: ${{ steps.check.outputs.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          echo "parser=$([ -f parser/pyproject.toml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "platform=$([ -f platform/pyproject.toml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  parser:
+    needs: detect
+    if: needs.detect.outputs.parser == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parser
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src
+      - run: uv run pytest -q
+
+  platform:
+    needs: detect
+    if: needs.detect.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src
+      - run: uv run pytest -q
+
+  # Поточна TS-бета: перевіряємо, що бекенд і фронт збираються, поки вони живуть у проді.
+  beta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: backend-js
+        working-directory: backend-js
+        run: npm ci && npm run build
+      - name: frontend
+        working-directory: frontend
+        run: npm ci && npm run build
