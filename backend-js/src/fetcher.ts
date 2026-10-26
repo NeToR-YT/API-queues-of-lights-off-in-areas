@@ -13,7 +13,7 @@ import {
   parseSchedule,
 } from "./parser.js";
 import { connectDb, closeDb } from "./db.js";
-import { loadConfig, saveConfig } from "./config.js";
+import { loadConfig, saveSession } from "./config.js";
 import type { Channel, ChannelFetchResult, Config, ParseState, ScheduleEntry } from "./types.js";
 
 function formatDate(date: Date): string {
@@ -63,8 +63,7 @@ async function createClient(config: Config): Promise<TelegramClient> {
 
   const saved = client.session.save() as unknown as string;
   if (saved && saved !== config.session_string) {
-    config.session_string = saved;
-    await saveConfig(config);
+    await saveSession(saved);
   }
 
   return client;

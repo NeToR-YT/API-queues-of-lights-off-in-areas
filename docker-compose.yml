@@ -4,7 +4,12 @@ services:
     ports:
       - "5001:5001"
     volumes:
-      - ./backend-js/config.json:/app/config.json
+      # Несекретна частина конфігу (канали, інтервали) — read-only.
+      - ./backend-js/config.json:/app/config.json:ro
+      # Сесія Telegram; створюється при першому інтерактивному вході.
+      - ./backend-js/secrets:/app/secrets
+    env_file:
+      - .env
     environment:
       - PORT=5001
       - MONGODB_URI=mongodb://mongo:27017

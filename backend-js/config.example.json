@@ -1,7 +1,5 @@
 {
-  "api_id": "YOUR_API_ID",
-  "api_hash": "YOUR_API_HASH",
-  "session_string": "",
+  "_comment": "Секрети (TG_API_ID, TG_API_HASH) — у .env, див. .env.example",
   "mongodb_uri": "mongodb://127.0.0.1:27017",
   "mongodb_db": "queues_of_lights",
   "channels": [
