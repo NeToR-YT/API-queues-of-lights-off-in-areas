@@ -1,0 +1,40 @@
+{
+  "source": "0-sample.jsonl",
+  "timezone_offset": 3,
+  "cases": [
+    {
+      "message_id": 1001,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-19",
+      "schedule": {
+        "1.1": [
+          "00:00-04:00"
+        ],
+        "1.2": [
+          "04:00-08:00"
+        ],
+        "2.1": [
+          "08:00-12:00"
+        ]
+      }
+    },
+    {
+      "message_id": 1002,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": null,
+      "schedule": {}
+    },
+    {
+      "message_id": 1003,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": null,
+      "schedule": {}
+    }
+  ]
+}
