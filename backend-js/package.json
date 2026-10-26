@@ -1,6 +1,6 @@
 {
   "name": "backend-js",
-  "version": "1.0.0",
+  "version": "0.9.0",
   "type": "module",
   "main": "dist/app.js",
   "scripts": {
@@ -10,7 +10,9 @@
     "fetch": "tsx src/fetcher.ts",
     "start:db": "mongod --dbpath ./db --bind_ip 127.0.0.1 --port 27017",
     "start:all": "tsx src/start-all.ts",
-    "migrate:python": "tsx src/migrate-from-python.ts"
+    "migrate:python": "tsx src/migrate-from-python.ts",
+    "corpus:export": "tsx src/tools/export-corpus.ts",
+    "corpus:expected": "tsx src/tools/build-expected.ts"
   },
   "dependencies": {
     "big-integer": "^1.6.0",
