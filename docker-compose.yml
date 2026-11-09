@@ -26,9 +26,10 @@ services:
     restart: unless-stopped
     logging: *logging
 
-  frontend:
-    build: ./frontend
-    # Лише всередині compose-мережі: назовні — тільки через Caddy (HTTPS).
+  proxy:
+    image: nginx:stable-alpine
+    # Правила доступу до API (nginx.conf). Лише всередині compose-мережі:
+    # назовні — тільки через Caddy (HTTPS).
     expose:
       - "80"
     volumes:
@@ -53,7 +54,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - frontend
+      - proxy
     restart: unless-stopped
     logging: *logging
 

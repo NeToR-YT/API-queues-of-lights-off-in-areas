@@ -54,7 +54,6 @@ Telegram-канали обленерго
 | `backend-js/` — TypeScript, Express, GramJS | **працює**, реліз `v0.9.0`; поступово замінюється |
 | `parser/` — Python, Telethon | у розробці: домен розбору готовий і звірений зі старим парсером |
 | `platform/` — Python, FastAPI | заплановано: `/v1` + сумісний `/api/*` |
-| `frontend/` — React | тестовий клієнт для локальної розробки |
 
 Чому перехід на Python і як він влаштований — [ADR-0002](docs/adr/0002-python-backend.md),
 модель даних — [ADR-0003](docs/adr/0003-data-model-v2.md).
@@ -69,7 +68,7 @@ cp backend-js/config.example.json backend-js/config.json # канали обле
 docker compose up -d --build
 ```
 
-API — на `https://localhost` (самопідписаний сертифікат Caddy). Деплой на сервер —
+API — на `https://localhost/api/` (самопідписаний сертифікат Caddy). Деплой на сервер —
 [`docs/deploy.md`](docs/deploy.md).
 
 Тести Python-парсера:

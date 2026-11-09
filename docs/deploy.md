@@ -1,11 +1,11 @@
 # Деплой на Oracle Cloud (Always Free) з HTTPS
 
-Розгортає стек (`backend-js` + `frontend` + Mongo) на безкоштовному ARM-сервері Oracle і
+Розгортає API (`backend-js` + Mongo) на безкоштовному ARM-сервері Oracle і
 відкриває його по HTTPS із сертифікатом Let's Encrypt.
 
 ```
 інтернет ──HTTPS :443──▶ Caddy ──▶ nginx :80 ──▶ backend :5001 ──▶ mongo
-                         (TLS, сертифікат)  (статика, /api,        (усе — лише
+                         (TLS, сертифікат)  (/api,                 (усе — лише
                                              403 на /api/update,     compose-мережа)
                                              rate limit)
 ```
