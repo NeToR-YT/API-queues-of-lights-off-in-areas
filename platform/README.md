@@ -18,4 +18,4 @@ ruff · mypy --strict · pytest + testcontainers
 ## Правила
 - Hexagonal-lite, як у парсері: домен без FastAPI і Mongo, адаптери окремо.
 - Помилки — RFC 9457 Problem Details.
-- Формули stats — специфікація в кореневому README.md; перевіряються еталонними наборами.
+- Формули stats — специфікація в `docs/stats-api.md`; перевіряються еталонними наборами.
