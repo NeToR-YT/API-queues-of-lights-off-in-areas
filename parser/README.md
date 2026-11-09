@@ -3,7 +3,16 @@
 Headless-воркер: читає Telegram-канали обленерго, парсить графіки погодинних
 відключень і пише їх у MongoDB. **Без вхідних портів** — назовні не слухає нічого.
 
-Статус: не почато. План — див. `plan-stage-1` у пам'яті проєкта.
+Статус: готові скелет, контракт даних (`docs/contracts/`, ADR-0003) і домен. Адаптери Telegram і Mongo — далі (задачі 1.4–1.5).
+
+## Запуск перевірок
+```bash
+uv sync
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+uv run pytest
+```
 
 ## Стек
 Python 3.12 · uv · Telethon · pydantic-settings · structlog
