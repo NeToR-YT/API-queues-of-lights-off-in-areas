@@ -17,6 +17,7 @@ import {
   hasQueueSchedule,
   isEmergencyOutageActive,
   isPowerOutageSchedule,
+  nowWithOffset,
   parseDate,
   parseSchedule,
 } from "../parser.js";
@@ -34,6 +35,8 @@ interface RawMessage {
 async function main(): Promise<void> {
   const config = await loadConfig();
   const timezoneOffset = config.timezone_offset ?? 3;
+  // Дати без року парсер доповнює поточним роком — фіксуємо його для відтворюваності.
+  const referenceDate = nowWithOffset(timezoneOffset).toISOString().slice(0, 10);
 
   let files: string[];
   try {
@@ -58,14 +61,16 @@ async function main(): Promise<void> {
 
     const cases = messages.map((msg) => {
       const isSchedule = isPowerOutageSchedule(msg.text);
-      const schedule = isSchedule ? parseSchedule(msg.text) : {};
+      const hasQueues = hasQueueSchedule(msg.text);
+      // Як у fetcher.ts: розбираємо пост, якщо спрацювала будь-яка з двох ознак.
+      const schedule = isSchedule || hasQueues ? parseSchedule(msg.text) : {};
       if (Object.keys(schedule).length > 0) totalSchedules += 1;
       return {
         message_id: msg.message_id,
         // Класифікація і розбір — окремими полями, щоб при розбіжності було
         // видно, який саме крок розійшовся, а не просто «результат інший».
         is_power_outage_schedule: isSchedule,
-        has_queue_schedule: hasQueueSchedule(msg.text),
+        has_queue_schedule: hasQueues,
         emergency_outages: isEmergencyOutageActive(msg.text),
         schedule_date: parseDate(msg.text, timezoneOffset),
         schedule,
@@ -75,7 +80,7 @@ async function main(): Promise<void> {
     const outFile = path.join(EXPECTED_DIR, file.replace(/\.jsonl$/, ".json"));
     await fs.writeFile(
       outFile,
-      JSON.stringify({ source: file, timezone_offset: timezoneOffset, cases }, null, 2) + "\n",
+      JSON.stringify({ source: file, timezone_offset: timezoneOffset, reference_date: referenceDate, cases }, null, 2) + "\n",
       "utf-8"
     );
     totalCases += cases.length;

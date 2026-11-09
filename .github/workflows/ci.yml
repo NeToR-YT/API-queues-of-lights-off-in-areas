@@ -50,7 +50,7 @@ jobs:
       - run: uv sync --all-extras --dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy src
+      - run: uv run mypy
       - run: uv run pytest -q
 
   platform:
@@ -68,7 +68,7 @@ jobs:
       - run: uv sync --all-extras --dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy src
+      - run: uv run mypy
       - run: uv run pytest -q
 
   # Поточна TS-бета: перевіряємо, що бекенд і фронт збираються, поки вони живуть у проді.

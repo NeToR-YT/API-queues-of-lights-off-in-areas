@@ -1,6 +1,7 @@
 {
   "source": "0-sample.jsonl",
   "timezone_offset": 3,
+  "reference_date": "2026-10-30",
   "cases": [
     {
       "message_id": 1001,

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lightua/schedule.v2",
+  "title": "Графік відключень каналу на одну дату (колекція schedules)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "channel_id", "schedule_date", "queues", "emergency_outages", "source", "parsed_at"],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "channel_id": { "type": "integer", "minimum": 1 },
+    "schedule_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "queues": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[0-6](\\.[12])?$": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]-(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$"
+          }
+        }
+      }
+    },
+    "emergency_outages": { "type": "boolean" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_id", "published_at"],
+      "properties": {
+        "message_id": { "type": "integer", "minimum": 1 },
+        "published_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" }
+      }
+    },
+    "parsed_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" }
+  }
+}

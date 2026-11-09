@@ -6,7 +6,7 @@ async function run(): Promise<void> {
   const db = await connectDb();
 
   // --- 1. Cities ---
-  const citiesRaw = execSync("git show origin/mongodb:public/backend/cities.json", { cwd: process.cwd() }).toString();
+  const citiesRaw = execSync("git show archive/mongodb-json-data:public/backend/cities.json", { cwd: process.cwd() }).toString();
   const citiesData = JSON.parse(citiesRaw) as { cities: City[] };
   const citiesCol = db.collection<City>("cities");
   await citiesCol.deleteMany({});
@@ -21,7 +21,7 @@ async function run(): Promise<void> {
   for (let i = 1; i <= 23; i++) {
     let raw: string;
     try {
-      raw = execSync(`git show origin/mongodb:public/schedule_history_${i}.json`, { cwd: process.cwd() }).toString();
+      raw = execSync(`git show archive/mongodb-json-data:public/schedule_history_${i}.json`, { cwd: process.cwd() }).toString();
     } catch {
       console.log(`  [SKIP] schedule_history_${i}.json — не знайдено у гілці`);
       continue;
