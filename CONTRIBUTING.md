@@ -75,13 +75,11 @@ chore(deploy): run backend container as non-root
 версії, тож інструменти очікують саме `feat`. У гілці `feature/` цілком можуть бути коміти
 `test:` чи `docs:`.
 
-
-
 ## Злиття
 
 Поки над проєктом працює один розробник, **PR не використовуємо**: гілки зливаються
-локально й пушаться. зливати й пушити — **лише з явної згоди власника** у поточному
-повідомленні. Коли з'явиться другий учасник — повертаємось до PR (див. «Захист гілок»).
+локально й пушаться; зливати й пушити в `main`/`develop` — **лише з явної згоди власника**
+репозиторію. Коли з'явиться другий учасник — повертаємось до PR (див. «Захист гілок»).
 
 | Що → куди | Команда | Чому |
 |---|---|---|
@@ -92,7 +90,7 @@ chore(deploy): run backend container as non-root
 
 Перед злиттям — перевірки локально (збірка, лінтери, тести); CI після пушу в `develop`
 і `main` — друга лінія. Після squash-злиття робочу гілку видаляємо через `git branch -D`
-(git не вважає її злитою). 
+(git не вважає її злитою).
 
 ## Релізи
 
@@ -132,11 +130,11 @@ chore(deploy): run backend container as non-root
 
 | Джерело | Середовище | Де | Адреса |
 |---|---|---|---|
-| тег на `main` | **прод** | ARM, `/opt/light-ua` | Tailscale Funnel, `:443` |
-| `develop` | **staging** | той самий ARM, окремий compose-проєкт | Funnel `:8443` або приватно (`tailscale serve`) |
+| тег на `main` | **прод** | Oracle Cloud Always Free (ARM), `/opt/light-ua` | Caddy, HTTPS `:443`, домен з `.env` |
+| `develop` | **staging** | той самий сервер, окремий compose-проєкт | окремий піддомен через той самий Caddy |
 
 Деплой проду — завжди **тег**, не гілка: `git fetch --tags && git checkout v0.9.0`,
-далі `docs/deploy-beta.md`. Відкат — checkout попереднього тегу.
+далі `docs/deploy.md`. Відкат — checkout попереднього тегу.
 
 **Staging працює БЕЗ парсера і без Telegram-секретів.** Якщо запустити ту саму сесію в
 двох місцях одночасно, Telegram побачить один ключ авторизації з двох адрес
@@ -169,11 +167,11 @@ GitHub не дає схвалити власний PR).
 
 ```bash
 # 1. Архівні теги для всього незлитого — нічого не губимо
-git tag -a archive/python-prototype      origin/back                         -m "Flask+Telethon prototype (domain reference for stage 1)"
-git tag -a archive/js-migration          origin/develop                      -m "Old JS migration, superseded by production"
-git tag -a archive/switch-to-typescript  origin/feature/switch-to-typescript -m "Unmerged TS switch branch"
-git tag -a archive/mongodb               origin/mongodb                      -m "Orphan data branch read by migrate-from-mongodb-branch.ts"
-git push origin archive/python-prototype archive/js-migration archive/switch-to-typescript archive/mongodb
+git tag -a archive/python-flask-prototype origin/back                         -m "Flask+Telethon prototype (domain reference for stage 1)"
+git tag -a archive/js-migration-abandoned origin/develop                      -m "Old JS migration, superseded by production"
+git tag -a archive/ts-migration-unmerged  origin/feature/switch-to-typescript -m "Unmerged TS switch branch"
+git tag -a archive/mongodb-json-data      origin/mongodb                      -m "Orphan data branch read by migrate-from-mongodb-branch.ts"
+git push origin archive/python-flask-prototype archive/js-migration-abandoned archive/ts-migration-unmerged archive/mongodb-json-data
 
 # 2. main = нинішній production (на remote main ще нема — нічого не перезаписує)
 git branch -f main production
@@ -189,12 +187,12 @@ git push --force-with-lease origin develop
 # 5. Поточна робота: chore/deploy-beta → develop (--no-ff: серія з осмислених комітів)
 # 6. Реліз v0.9.0 (розділ «Релізи»); сервер переходить з гілки production на тег v0.9.0
 
-# 7. Скрипт міграції читає origin/mongodb → перевести на archive/mongodb
+# 7. Скрипт міграції читає origin/mongodb → перевести на archive/mongodb-json-data
 
 # 8. ⚠️ Лише після кроку 6: прибрати старі remote-гілки
 git push origin --delete back production mongodb \
   feature/statistics feature/switch-to-javascript feature/switch-to-typescript
 ```
 
-Архівний тег `archive/python-prototype` тримає в історії скомпрометовану Telethon-сесію —
+Архівний тег `archive/python-flask-prototype` тримав в історії скомпрометовану Telethon-сесію —
 вона вже мертва після ротації (задача 0.1); зачистка історії (filter-repo) перепише й тег.
