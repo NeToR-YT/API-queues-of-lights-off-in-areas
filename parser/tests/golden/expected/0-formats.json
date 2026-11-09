@@ -1,0 +1,337 @@
+{
+  "source": "0-formats.jsonl",
+  "timezone_offset": 3,
+  "reference_date": "2026-10-30",
+  "cases": [
+    {
+      "message_id": 1,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-19",
+      "schedule": {
+        "1.1": [
+          "00:00-04:00"
+        ],
+        "1.2": [
+          "04:00-08:00",
+          "12:00-16:00"
+        ]
+      }
+    },
+    {
+      "message_id": 2,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-20",
+      "schedule": {
+        "1.1": [
+          "06:00-08:00"
+        ],
+        "2.1": [
+          "10:00-12:00"
+        ]
+      }
+    },
+    {
+      "message_id": 3,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-21",
+      "schedule": {
+        "3": [
+          "10:00-12:00",
+          "14:00-16:00"
+        ],
+        "4": [
+          "18:00-20:00"
+        ]
+      }
+    },
+    {
+      "message_id": 4,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-22",
+      "schedule": {
+        "1.1": [
+          "08:00-10:00"
+        ],
+        "1.2": [
+          "10:00-12:00"
+        ]
+      }
+    },
+    {
+      "message_id": 5,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-23",
+      "schedule": {
+        "2": [
+          "11:00-15:00"
+        ],
+        "1.1": [
+          "06:00-10:00"
+        ]
+      }
+    },
+    {
+      "message_id": 6,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-19",
+      "schedule": {
+        "1.1": [
+          "06:00-08:00"
+        ]
+      }
+    },
+    {
+      "message_id": 7,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-19",
+      "schedule": {
+        "1.1": [
+          "06:00-08:00"
+        ]
+      }
+    },
+    {
+      "message_id": 8,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-24",
+      "schedule": {
+        "2.1": [
+          "00:00-08:00"
+        ],
+        "2.2": [
+          "08:30-10:45"
+        ]
+      }
+    },
+    {
+      "message_id": 9,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": true,
+      "schedule_date": "2026-08-25",
+      "schedule": {
+        "1.1": [
+          "00:00-02:00"
+        ]
+      }
+    },
+    {
+      "message_id": 10,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-26",
+      "schedule": {
+        "1.1": [
+          "00:00-02:00"
+        ]
+      }
+    },
+    {
+      "message_id": 11,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-27",
+      "schedule": {
+        "1.1": [
+          "00:00-02:00"
+        ],
+        "1.2": [
+          "02:00-04:00"
+        ],
+        "2.1": [
+          "04:00-06:00"
+        ],
+        "2.2": [
+          "06:00-08:00"
+        ]
+      }
+    },
+    {
+      "message_id": 12,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-28",
+      "schedule": {
+        "3.1": [
+          "22:00-02:00"
+        ],
+        "3.2": [
+          "23:00-00:00"
+        ]
+      }
+    },
+    {
+      "message_id": 13,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": null,
+      "schedule": {
+        "1.1": [
+          "00:00-02:00"
+        ]
+      }
+    },
+    {
+      "message_id": 14,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": null,
+      "schedule": {}
+    },
+    {
+      "message_id": 15,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-24",
+      "schedule": {}
+    },
+    {
+      "message_id": 16,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-29",
+      "schedule": {
+        "1.1": [
+          "08:00-10:00"
+        ],
+        "1.2": [
+          "10:00-12:00"
+        ],
+        "2.1": [
+          "12:00-14:00"
+        ],
+        "2.2": [
+          "14:00-16:00"
+        ]
+      }
+    },
+    {
+      "message_id": 17,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": null,
+      "schedule": {
+        "1.1": [
+          "08:00-10:00"
+        ]
+      }
+    },
+    {
+      "message_id": 18,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": false,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-31",
+      "schedule": {
+        "3": [
+          "12:00-14:00"
+        ],
+        "1.1": [
+          "08:00-10:00"
+        ],
+        "2.1": [
+          "10:00-12:00"
+        ]
+      }
+    },
+    {
+      "message_id": 19,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-19",
+      "schedule": {
+        "1": [
+          "04:00-16:00"
+        ],
+        "1.1": [
+          "08:00-10:00"
+        ]
+      }
+    },
+    {
+      "message_id": 20,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-09-05",
+      "schedule": {
+        "1.1": [
+          "08:00-10:00"
+        ]
+      }
+    },
+    {
+      "message_id": 21,
+      "is_power_outage_schedule": false,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": null,
+      "schedule": {
+        "5.1": [
+          "06:00-08:00"
+        ]
+      }
+    },
+    {
+      "message_id": 22,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-09-03",
+      "schedule": {
+        "1.1": [
+          "08:00-10:00"
+        ]
+      }
+    },
+    {
+      "message_id": 23,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-09-04",
+      "schedule": {
+        "1.1": [
+          "08:00-10:00"
+        ]
+      }
+    },
+    {
+      "message_id": 24,
+      "is_power_outage_schedule": true,
+      "has_queue_schedule": true,
+      "emergency_outages": false,
+      "schedule_date": "2026-08-19",
+      "schedule": {
+        "1.1": [
+          "06:00-08:00"
+        ]
+      }
+    }
+  ]
+}
