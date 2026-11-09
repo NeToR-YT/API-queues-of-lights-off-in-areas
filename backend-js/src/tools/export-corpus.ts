@@ -1,13 +1,13 @@
 /**
- * Задача 0.6, крок 1: знімає сирі повідомлення каналів у golden-корпус.
+ * Golden-корпус, крок 1: знімає сирі повідомлення каналів.
  *
- * Мережевий крок — потребує чинної Telegram-сесії. Запускати ПІСЛЯ ротації
- * акаунта (задача 0.1), новим акаунтом.
+ * Цей крок ходить у мережу й потребує робочої Telegram-сесії акаунта парсера
+ * (див. docs/telegram-account.md).
  *
  *   npm run corpus:export -- --limit 300
  *
  * Пише parser/tests/golden/raw/<id>-<username>.jsonl (по повідомленню на рядок).
- * Нічого не парсить: сирий текст — щоб еталон можна було перерахувати будь-коли.
+ * Нічого не парсить і зберігає сирий текст, щоб еталон можна було перерахувати будь-коли.
  */
 import fs from "fs/promises";
 import path from "path";
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
       const entity = await client.getEntity(channel.username);
       for await (const message of client.iterMessages(entity, { limit })) {
         const msg = message as Api.Message;
-        if (!msg.message) continue; // картинки без підпису — поза межами парсера
+        if (!msg.message) continue; // картинки без підпису парсер не розбирає
         lines.push(
           JSON.stringify({
             message_id: msg.id,

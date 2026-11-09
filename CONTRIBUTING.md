@@ -1,7 +1,6 @@
 # Як ми працюємо з git
 
-Стандарт проєкта, ухвалений 2026-10-26. Схема: дві постійні гілки + короткоживучі
-робочі гілки + **теги як історія версій**.
+Дві постійні гілки, короткоживучі робочі гілки, а історію версій тримають теги.
 
 ```
 feature/*, fix/*, chore/* ──squash──▶ develop ──▶ staging
@@ -10,7 +9,7 @@ feature/*, fix/*, chore/* ──squash──▶ develop ──▶ staging
                                │
                                └──merge──▶ main ──тег vX.Y.Z──▶ прод
                                                  │
-hotfix/* ── від main, лише якщо прод горить ─────┘  (потім main → develop)
+hotfix/* ── від main, лише якщо прод зламаний ───┘  (потім main → develop)
 ```
 
 ## Гілки
@@ -19,27 +18,29 @@ hotfix/* ── від main, лише якщо прод горить ───�
 
 | Гілка | Що в ній | Куди деплоїться |
 |---|---|---|
-| `main` | те, що зараз у проді; кожен реліз — тег на ній | прод (за тегом) |
+| `main` | те, що зараз у проді; кожен реліз позначений тегом | прод (за тегом) |
 | `develop` | усе прийняте й готове до наступного релізу | staging |
 
-У `main` і `develop` не комітимо напряму і ніколи не робимо force-push — лише злиттям робочих гілок.
+У `main` і `develop` не комітимо напряму й не робимо force-push. Зміни потрапляють туди
+лише злиттям робочих гілок.
 
-### Робочі (короткоживучі)
+### Робочі
 
-| Префікс | Для чого | Відгалужується від | Зливається в |
+| Префікс | Для чого | Від якої гілки | Куди зливається |
 |---|---|---|---|
 | `feature/` | нова можливість для користувача чи клієнта API | `develop` | `develop` |
 | `fix/` | виправлення бага | `develop` | `develop` |
-| `chore/` | робота **без** зміни поведінки: залежності, CI, Docker/деплой, рефакторинг, документація | `develop` | `develop` |
-| `release/` | підготовка релізу: версія, CHANGELOG, лише стабілізаційні фікси | `develop` | `main`, потім `main` → `develop` |
-| `hotfix/` | **виняток**: прод зламаний, а в `develop` лежить неготове | `main` | `main`, потім `main` → `develop` |
+| `chore/` | робота без зміни поведінки: залежності, CI, деплой, рефакторинг, документація | `develop` | `develop` |
+| `release/` | підготовка релізу: версія, CHANGELOG, лише стабілізаційні виправлення | `develop` | `main`, потім `main` у `develop` |
+| `hotfix/` | виняток, коли прод зламаний, а в `develop` лежить неготове | `main` | `main`, потім `main` у `develop` |
 
-Чому `chore/` окремо від `feature/`: інакше оновлення залежностей чи CI потрапляє в
-CHANGELOG як «нова можливість», хоча користувач нічого нового не отримав.
+`chore/` окремо від `feature/`, щоб оновлення залежностей чи CI не потрапляли в CHANGELOG
+як нові можливості.
 
 ### Назви
 
-`<префікс>/<короткий-опис>` — латиницею, малими літерами, через дефіс. Номер issue — за бажанням.
+Формат `<префікс>/<короткий-опис>`: латиницею, малими літерами, через дефіс. Номер issue
+можна додати за бажанням.
 
 ```
 feature/telegram-notifications-bot
@@ -50,7 +51,9 @@ release/0.9.0
 hotfix/parser-crash-on-empty-message
 ```
 
-## Коміти — Conventional Commits
+## Коміти
+
+Використовуємо [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <тип>(<область, необов'язково>): <що зроблено, англійською, наказовий спосіб>
@@ -60,9 +63,9 @@ hotfix/parser-crash-on-empty-message
 |---|---|---|
 | `feat` | нова можливість | minor |
 | `fix` | виправлення бага | patch |
-| `perf` | швидше / менше ресурсів | patch |
-| `refactor`, `docs`, `test`, `ci`, `build`, `chore` | без зміни поведінки | — |
-| `feat!` / `fix!` або `BREAKING CHANGE:` у тілі | ламає сумісність | major |
+| `perf` | швидше або з меншими ресурсами | patch |
+| `refactor`, `docs`, `test`, `ci`, `build`, `chore` | без зміни поведінки | немає |
+| `feat!`, `fix!` або `BREAKING CHANGE:` у тілі | ламає сумісність | major |
 
 ```
 feat(stats): add weekday heatmap endpoint
@@ -70,129 +73,98 @@ fix(parser): handle "-" as no-outage line after queue header
 chore(deploy): run backend container as non-root
 ```
 
-**Префікс гілки і тип коміту — різні речі.** Гілка `feature/` — це назва для людей;
-`feat:` у коміті — стандарт, з якого автоматично будуються CHANGELOG і наступний номер
-версії, тож інструменти очікують саме `feat`. У гілці `feature/` цілком можуть бути коміти
-`test:` чи `docs:`.
+Префікс гілки й тип коміту не обов'язково збігаються. Назва гілки `feature/` потрібна людям,
+а за типом `feat` інструменти будують CHANGELOG і визначають наступну версію. У гілці
+`feature/` цілком можуть бути коміти `test:` чи `docs:`.
 
 ## Злиття
 
-Поки над проєктом працює один розробник, **PR не використовуємо**: гілки зливаються
-локально й пушаться; зливати й пушити в `main`/`develop` — **лише з явної згоди власника**
-репозиторію. Коли з'явиться другий учасник — повертаємось до PR (див. «Захист гілок»).
+Поки над проєктом працює одна людина, pull request-и не використовуємо: гілки зливаються
+локально й пушаться. Зливати й пушити в `main` та `develop` можна лише з явної згоди
+власника репозиторію. Коли з'явиться другий учасник, повернемося до PR.
 
-| Що → куди | Команда | Чому |
+| Що й куди | Команда | Навіщо |
 |---|---|---|
-| `feature/` `fix/` `chore/` → `develop` | `git merge --squash <гілка>` + коміт у форматі Conventional Commits | одна зміна = один коміт = один рядок у CHANGELOG |
-| те саме, але гілка — свідомо розбита серія комітів | `git merge --no-ff <гілка>` | зберегти осмислені коміти (напр. безпека окремо від деплою) |
-| `release/` `hotfix/` → `main` | `git merge --no-ff <гілка>` | `main` і `develop` мають спільну історію — зворотне злиття не конфліктує |
-| `main` → `develop` після релізу/хотфіксу | `git merge --no-ff main` | повертає версію й фікси в `develop` |
+| `feature/`, `fix/`, `chore/` у `develop` | `git merge --squash <гілка>` і коміт за Conventional Commits | одна зміна дає один коміт і один рядок у CHANGELOG |
+| те саме, якщо гілка свідомо розбита на кілька осмислених комітів | `git merge --no-ff <гілка>` | коміти зберігаються, наприклад безпека окремо від деплою |
+| `release/`, `hotfix/` у `main` | `git merge --no-ff <гілка>` | у `main` і `develop` спільна історія, зворотне злиття не дає конфліктів |
+| `main` у `develop` після релізу чи хотфіксу | `git merge --no-ff main` | версія й виправлення повертаються в `develop` |
 
-Перед злиттям — перевірки локально (збірка, лінтери, тести); CI після пушу в `develop`
-і `main` — друга лінія. Після squash-злиття робочу гілку видаляємо через `git branch -D`
-(git не вважає її злитою).
+Перед злиттям проганяємо перевірки локально: збірку, лінтери, тести. CI після пушу в
+`develop` і `main` перевіряє ще раз. Після squash-злиття робочу гілку видаляємо командою
+`git branch -D`, бо git не вважає її злитою.
 
 ## Релізи
 
-Версії — [SemVer](https://semver.org/lang/uk/). До мілстоуна V1 — `0.x`:
-**`v0.9.0` — TS-бета**, **`v1.0.0` — Python V1**.
+Версії за [SemVer](https://semver.org/lang/uk/). До першої стабільної версії номери мають
+вигляд `0.x`: `v0.9.0` і `v0.10.0` відповідають TS-версії, `v1.0.0` буде першою на Python.
 
-1. `git switch -c release/0.9.0 develop`
-2. Підняти версію (`package.json` / `pyproject.toml`), оновити `CHANGELOG.md`.
-   У release-гілку — **лише стабілізаційні фікси**, нових фіч нема.
-3. `git switch main && git merge --no-ff release/0.9.0`
-4. Анотований тег на `main` + GitHub Release з нотатками:
-   `git tag -a v0.9.0 -m "v0.9.0"` → `git push origin v0.9.0`
-5. `main` → `develop` (merge commit).
-6. Видалити `release/0.9.0` — історію тримає тег.
+1. `git switch -c release/0.10.0 develop`
+2. Підняти версію (`package.json`, `pyproject.toml`) і оновити `CHANGELOG.md`.
+   У release-гілку йдуть лише стабілізаційні виправлення, нових можливостей там немає.
+3. `git switch main && git merge --no-ff release/0.10.0`
+4. Поставити анотований тег на `main` і створити GitHub Release з нотатками:
+   `git tag -a v0.10.0 -m "v0.10.0"`, потім `git push origin v0.10.0`.
+5. Злити `main` у `develop`.
+6. Видалити `release/0.10.0`, історію зберігає тег.
 
-**«Реліз 1.5 заморожений, а треба працювати над 2.0»** — саме для цього release-гілка:
-`release/1.5.0` стабілізується окремо, а `develop` тим часом приймає фічі 2.0.
-Незавершена фіча просто лишається у своїй `feature/`-гілці й не мержиться, поки не готова.
+Release-гілка рятує, коли реліз 1.5 уже заморожений, а треба працювати над 2.0:
+`release/1.5.0` стабілізується окремо, а `develop` тим часом приймає зміни для 2.0.
+Незавершена можливість просто лишається у своїй `feature/`-гілці, поки не буде готова.
 
-**Латання старої версії**, коли `main` уже пішов далі (рідкість для вебсервісу), — виняток:
-`git switch -c release/1.5 v1.5.0`, фікс, тег `v1.5.1`. Гілка живе, поки стара версія потрібна.
+Якщо треба виправити стару версію, а `main` уже пішов далі (для вебсервісу це рідкість),
+гілка створюється від тегу: `git switch -c release/1.5 v1.5.0`, виправлення, тег `v1.5.1`.
+Така гілка живе, поки стара версія потрібна.
 
-### Версія застосунку ≠ версія API
+### Версія застосунку і версія API
 
-`v2.3.0` застосунку цілком може віддавати і `/v1`, і `/v2` API. Версія API (шлях `/vN`)
-змінюється лише при ламкій зміні контракту, і старий шлях живе поруч, поки клієнти
-не перейдуть. Окремих гілок для версій API нема.
+Застосунок версії `v2.3.0` може одночасно віддавати і `/v1`, і `/v2`. Версія API в шляху
+змінюється лише тоді, коли контракт ламає сумісність, і старий шлях працює поруч, поки
+клієнти не перейдуть. Окремих гілок для версій API немає.
 
 ## Хотфікси
 
-Лише коли прод зламаний **і** в `develop` вже лежить неготове до релізу. Інакше — звичайний
-`fix/` через `develop` і наступний реліз.
+Хотфікс потрібен лише тоді, коли прод зламаний і в `develop` уже лежить неготове до релізу.
+В інших випадках робимо звичайний `fix/` через `develop` і наступний реліз.
 
-`hotfix/<опис>` від `main` → `--no-ff` у `main` → тег patch (`v0.9.1`) → `main` → `develop`.
+Порядок: гілка `hotfix/<опис>` від `main`, злиття в `main` через `--no-ff`, тег із новою
+patch-версією (`v0.10.1`), потім `main` у `develop`.
 
 ## Середовища
 
 | Джерело | Середовище | Де | Адреса |
 |---|---|---|---|
-| тег на `main` | **прод** | Oracle Cloud Always Free (ARM), `/opt/light-ua` | Caddy, HTTPS `:443`, домен з `.env` |
-| `develop` | **staging** | той самий сервер, окремий compose-проєкт | окремий піддомен через той самий Caddy |
+| тег на `main` | прод | Oracle Cloud Always Free (ARM), `/opt/light-ua` | HTTPS через Caddy, домен з `.env` |
+| `develop` | staging | той самий сервер, окремий compose-проєкт | окремий піддомен через той самий Caddy |
 
-Деплой проду — завжди **тег**, не гілка: `git fetch --tags && git checkout v0.9.0`,
-далі `docs/deploy.md`. Відкат — checkout попереднього тегу.
+У прод завжди йде тег, а не гілка: `git fetch --tags && git checkout v0.10.0`, далі за
+[`docs/deploy.md`](docs/deploy.md). Відкат: checkout попереднього тегу.
 
-**Staging працює БЕЗ парсера і без Telegram-секретів.** Якщо запустити ту саму сесію в
-двох місцях одночасно, Telegram побачить один ключ авторизації з двох адрес
-(`AUTH_KEY_DUPLICATED`) і може вбити сесію — разом із продом. Дані для staging —
-знімок прод-Mongo (`mongodump` → `mongorestore`); коли в Mongo з'являться read-only
-користувачі (етап 1, задача 1.5), staging зможе читати прод напряму.
+Staging працює без парсера й без Telegram-секретів. Одна й та сама сесія, запущена в двох
+місцях одночасно, дає помилку `AUTH_KEY_DUPLICATED`, і Telegram може розірвати її разом із
+продом. Дані для staging беруться зі знімка продової бази (`mongodump` і `mongorestore`).
+Коли в MongoDB з'являться користувачі лише для читання, staging зможе читати прод напряму.
 
-> Статус: staging ще не налаштований — окрема задача.
+Staging поки не налаштований.
 
 ## Захист гілок на GitHub
 
-Settings → Rules → Rulesets (або Settings → Branches) для `main` і `develop`:
+Для `main` і `develop` (Settings → Branches) увімкнено:
 
-- Block force pushes
-- Restrict deletions
+- заборону force-push;
+- заборону видалення.
 
-«Require a pull request» і «Require status checks» **не вмикаємо**, поки працюємо без PR:
-інакше GitHub відхилятиме прямий push у ці гілки. Вмикаємо разом із переходом на PR,
-коли з'явиться другий учасник (approvals = 0, якщо PR-и відкриває той самий власник —
-GitHub не дає схвалити власний PR).
+«Require a pull request» і «Require status checks» вимкнені, бо без PR GitHub відхиляв би
+прямі пуші в ці гілки. Їх варто ввімкнути разом із переходом на PR.
 
----
+## Старі версії
 
-## Перехід на цю схему (одноразово, 2026-10)
+Код до переходу на поточну схему збережено в тегах:
 
-Стан до переходу: робочий код — у `production`; дефолтна гілка GitHub `back` і локальний
-`main` — Python-прототип; `origin/develop` — мертва стара JS-міграція. Нічого незлитого
-не видаляємо без архівного тегу. Кроки з ⚠️ змінюють remote — виконуються лише за явною
-згодою власника.
-
-```bash
-# 1. Архівні теги для всього незлитого — нічого не губимо
-git tag -a archive/python-flask-prototype origin/back                         -m "Flask+Telethon prototype (domain reference for stage 1)"
-git tag -a archive/js-migration-abandoned origin/develop                      -m "Old JS migration, superseded by production"
-git tag -a archive/ts-migration-unmerged  origin/feature/switch-to-typescript -m "Unmerged TS switch branch"
-git tag -a archive/mongodb-json-data      origin/mongodb                      -m "Orphan data branch read by migrate-from-mongodb-branch.ts"
-git push origin archive/python-flask-prototype archive/js-migration-abandoned archive/ts-migration-unmerged archive/mongodb-json-data
-
-# 2. main = нинішній production (на remote main ще нема — нічого не перезаписує)
-git branch -f main production
-git push origin main
-
-# 3. ⚠️ develop = main (перезаписує старий origin/develop; він уже під тегом)
-git branch -f develop main
-git push --force-with-lease origin develop
-
-# 4. GitHub: Settings → General → Default branch → кнопка ⇄ «Switch to another branch»
-#    (НЕ олівець — він перейменовує back) → main; захист main і develop (див. вище)
-
-# 5. Поточна робота: chore/deploy-beta → develop (--no-ff: серія з осмислених комітів)
-# 6. Реліз v0.9.0 (розділ «Релізи»); сервер переходить з гілки production на тег v0.9.0
-
-# 7. Скрипт міграції читає origin/mongodb → перевести на archive/mongodb-json-data
-
-# 8. ⚠️ Лише після кроку 6: прибрати старі remote-гілки
-git push origin --delete back production mongodb \
-  feature/statistics feature/switch-to-javascript feature/switch-to-typescript
-```
-
-Архівний тег `archive/python-flask-prototype` тримав в історії скомпрометовану Telethon-сесію —
-вона вже мертва після ротації (задача 0.1); зачистка історії (filter-repo) перепише й тег.
+| Тег | Що це |
+|---|---|
+| `archive/python-flask-prototype` | перший прототип на Flask і Telethon, дані в JSON-файлах |
+| `archive/js-migration-abandoned` | незавершена міграція на JavaScript |
+| `archive/ts-migration-unmerged` | рання спроба переходу на TypeScript, не злита |
+| `archive/mongodb-json-data` | старі дані розкладів у JSON (їх читає `migrate-from-mongodb-branch.ts`) |
+| `v0.3.0` | TypeScript-версія до впорядкування релізів |

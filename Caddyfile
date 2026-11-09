@@ -1,6 +1,6 @@
 # Публічна точка входу: HTTPS із сертифікатом Let's Encrypt, який Caddy отримує
-# й оновлює сам. Домен — змінна DOMAIN у .env (напр. svitloua.duckdns.org).
-# Без DOMAIN — localhost із локальним самопідписаним сертифікатом для перевірок.
+# й оновлює сам. Домен задає змінна DOMAIN у .env (наприклад, svitloua.duckdns.org).
+# Без DOMAIN працює localhost із самопідписаним сертифікатом для локальних перевірок.
 #
 # Правила доступу до API (403 на /api/update, rate limit) тримає nginx за Caddy.
 

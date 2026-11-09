@@ -12,7 +12,7 @@ services:
     expose:
       - "5001"
     volumes:
-      # Несекретна частина конфігу (канали, інтервали) — read-only.
+      # Несекретна частина конфігу (канали, інтервали), лише для читання.
       - ./backend-js/config.json:/app/config.json:ro
       # Сесія Telegram; створюється при першому інтерактивному вході.
       - ./backend-js/secrets:/app/secrets
@@ -29,7 +29,7 @@ services:
   proxy:
     image: nginx:stable-alpine
     # Правила доступу до API (nginx.conf). Лише всередині compose-мережі:
-    # назовні — тільки через Caddy (HTTPS).
+    # назовні доступ лише через Caddy (HTTPS).
     expose:
       - "80"
     volumes:
@@ -60,7 +60,7 @@ services:
 
   mongo:
     image: mongo:7
-    # WiredTiger за замовчуванням бере ~50% RAM. 1 ГБ — з запасом для наших даних
+    # WiredTiger за замовчуванням бере близько половини RAM. 1 ГБ вистачає з запасом для наших даних
     # і з місцем під майбутні Python-сервіси на Oracle (12 ГБ).
     command: ["--wiredTigerCacheSizeGB", "1"]
     volumes:
