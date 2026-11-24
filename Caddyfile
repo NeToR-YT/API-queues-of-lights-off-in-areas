@@ -14,3 +14,14 @@
 
 	reverse_proxy proxy:80
 }
+
+# Dev-середовище (deploy/compose.dev.yml). Поки dev-стек не запущений, тут буде 502.
+{$DEV_DOMAIN:dev.localhost} {
+	encode zstd gzip
+
+	header {
+		-Server
+	}
+
+	reverse_proxy light-ua-dev-proxy:80
+}

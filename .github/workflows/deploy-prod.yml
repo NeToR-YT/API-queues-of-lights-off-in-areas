@@ -1,0 +1,58 @@
+name: Deploy prod
+
+# Ручний запуск: Actions -> Deploy prod -> Run workflow, вказати релізний тег.
+# У прод іде лише тег з історії main (CONTRIBUTING.md), сервер перевіряє це ще раз.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Релізний тег, наприклад v0.11.0"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.PROD_DOMAIN }}/api/status
+    steps:
+      - name: Check tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::Очікується тег vX.Y.Z, отримано: $TAG"; exit 1; }
+          git ls-remote --exit-code --tags "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$TAG" >/dev/null \
+            || { echo "::error::Тегу $TAG немає в репозиторії"; exit 1; }
+
+      - name: SSH setup
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          TAG: ${{ inputs.tag }}
+        run: ssh -o BatchMode=yes "deploy@$HOST" prod "$TAG"
+
+      - name: Smoke test
+        env:
+          DOMAIN: ${{ vars.PROD_DOMAIN }}
+        run: |
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$DOMAIN/api/status"
+          echo
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "https://$DOMAIN/api/update")
+          [ "$code" = 403 ] || { echo "::error::/api/update має бути закритим, отримано $code"; exit 1; }

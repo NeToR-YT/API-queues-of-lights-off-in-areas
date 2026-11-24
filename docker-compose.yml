@@ -47,6 +47,11 @@ services:
       - "443:443/udp" # HTTP/3
     environment:
       - DOMAIN=${DOMAIN:-localhost}
+      - DEV_DOMAIN=${DEV_DOMAIN:-dev.localhost}
+    networks:
+      - default
+      # Через цю мережу Caddy бачить dev-стек (deploy/compose.dev.yml).
+      - edge
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Сертифікати й ключі ACME-акаунта: без тому Caddy перевипускав би їх при кожному
@@ -67,6 +72,10 @@ services:
       - mongo_data:/data/db
     restart: unless-stopped
     logging: *logging
+
+networks:
+  edge:
+    name: light-ua-edge
 
 volumes:
   mongo_data:

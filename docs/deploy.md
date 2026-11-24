@@ -115,6 +115,69 @@ sudo cp deploy/light-ua.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable light-ua
 ```
 
+## 8. Деплой із GitHub Actions
+
+Після одноразового налаштування нижче сервер оновлюється з GitHub:
+
+| Workflow | Коли | Куди |
+|---|---|---|
+| `Deploy prod` | вручну: Actions → Deploy prod → Run workflow, вказати тег `vX.Y.Z` | `/opt/light-ua`, домен `DOMAIN` |
+| `Deploy dev` | сам, після кожного пушу в `develop` із зеленим CI | `/opt/light-ua-dev`, домен `DEV_DOMAIN` |
+
+GitHub заходить на сервер користувачем `deploy`. Його ключ прив'язаний до скрипта
+`/usr/local/bin/light-ua-deploy` (копія `deploy/remote-deploy.sh`), тож shell цей ключ не дає:
+дозволені лише `prod <тег з main>` і `dev <коміт з develop>`. Скрипт перемикає checkout,
+перезбирає стек і чекає, поки бекенд стане healthy.
+
+Dev має свої контейнери й свою MongoDB, а порти 80 і 443 тримає Caddy проду: він віддає
+обидва домени, з dev-стеком його з'єднує мережа `light-ua-edge`. Тож прод запускається першим.
+
+### Одноразове налаштування
+
+На своєму комп'ютері згенерувати ключ деплою (без пароля):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C github-actions-deploy -f deploy_key
+```
+
+На сервері:
+
+```bash
+sudo useradd -m -s /bin/bash deploy && sudo usermod -aG docker deploy
+sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+echo 'command="/usr/local/bin/light-ua-deploy",restrict <вміст deploy_key.pub>' \
+  | sudo tee /home/deploy/.ssh/authorized_keys
+sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys && sudo chmod 600 /home/deploy/.ssh/authorized_keys
+sudo install -m 755 /opt/light-ua/deploy/remote-deploy.sh /usr/local/bin/light-ua-deploy
+
+# Dev: окремий checkout, без Telegram-ключів (TG_API_ID і TG_API_HASH порожні)
+sudo git clone https://github.com/NeToR-YT/API-queues-of-lights-off-in-areas.git /opt/light-ua-dev
+cd /opt/light-ua-dev && sudo cp .env.example .env && sudo cp /opt/light-ua/backend-js/config.json backend-js/
+sudo mkdir -p backend-js/secrets
+
+# У .env проду дописати DEV_DOMAIN=svitloua-dev.duckdns.org
+sudo chown -R deploy:deploy /opt/light-ua /opt/light-ua-dev
+sudo chown -R 1000:1000 /opt/light-ua/backend-js/secrets /opt/light-ua-dev/backend-js/secrets
+```
+
+> Після зміни `deploy/remote-deploy.sh` у репозиторії скопіюйте його в `/usr/local/bin` ще раз:
+> сервер виконує саме ту копію.
+
+У GitHub (Settings → Secrets and variables → Actions):
+
+| Що | Тип | Значення |
+|---|---|---|
+| `DEPLOY_SSH_KEY` | secret | вміст приватного `deploy_key` |
+| `DEPLOY_HOST` | variable | публічна IP сервера |
+| `DEPLOY_KNOWN_HOSTS` | variable | вивід `ssh-keyscan -t ed25519 <IP>` |
+| `PROD_DOMAIN` | variable | `svitloua.duckdns.org` |
+| `DEV_DOMAIN` | variable | `svitloua-dev.duckdns.org` |
+
+Після цього приватний `deploy_key` на комп'ютері можна видалити.
+
+Telegram-сесії в dev немає й не має бути: одна сесія у двох місцях дає
+`AUTH_KEY_DUPLICATED` і може обірвати прод.
+
 ## Фронтенд на GitHub Pages
 
 Поки `cors_origins` у `config.json` порожній, бекенд відповідає з `Access-Control-Allow-Origin: *`,
