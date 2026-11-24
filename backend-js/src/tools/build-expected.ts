@@ -1,14 +1,14 @@
 /**
- * Задача 0.6, крок 2: рахує еталонні результати старого парсера по корпусу.
+ * Golden-корпус, крок 2: рахує еталонні результати старого парсера.
  *
  *   npm run corpus:expected
  *
  * Читає parser/tests/golden/raw/*.jsonl, проганяє кожне повідомлення через
  * чисті функції backend-js/src/parser.ts і пише parser/tests/golden/expected/*.json.
  *
- * Мережі не потребує — можна перезапускати скільки завгодно. Саме ці файли
- * Python-домен має відтворити в задачі 1.3; свідомі розбіжності (там, де старий
- * парсер помилявся) фіксуються окремо, а не мовчки.
+ * Мережа не потрібна, тож перезапускати можна скільки завгодно. Саме ці файли
+ * має відтворити Python-парсер. Свідомі розбіжності (там, де старий парсер
+ * помилявся) описуються окремо, а не мовчки.
  */
 import fs from "fs/promises";
 import path from "path";
@@ -35,7 +35,7 @@ interface RawMessage {
 async function main(): Promise<void> {
   const config = await loadConfig();
   const timezoneOffset = config.timezone_offset ?? 3;
-  // Дати без року парсер доповнює поточним роком — фіксуємо його для відтворюваності.
+  // Дати без року парсер доповнює поточним роком, тому фіксуємо його для відтворюваності.
   const referenceDate = nowWithOffset(timezoneOffset).toISOString().slice(0, 10);
 
   let files: string[];
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
       if (Object.keys(schedule).length > 0) totalSchedules += 1;
       return {
         message_id: msg.message_id,
-        // Класифікація і розбір — окремими полями, щоб при розбіжності було
+        // Класифікація і розбір окремими полями, щоб при розбіжності було
         // видно, який саме крок розійшовся, а не просто «результат інший».
         is_power_outage_schedule: isSchedule,
         has_queue_schedule: hasQueues,

@@ -1,0 +1,28 @@
+# Dev-середовище на тому ж сервері, що й прод. Запуск:
+#
+#   docker compose -p light-ua-dev -f docker-compose.yml -f deploy/compose.dev.yml up -d
+#
+# Свій compose-проєкт, тож у dev свої контейнери, своя MongoDB і свої томи.
+# Порти 80 і 443 тримає Caddy продового стеку: він же віддає dev-домен
+# (DEV_DOMAIN у .env проду) і ходить сюди через спільну мережу light-ua-edge.
+#
+# Telegram-сесії в dev немає й бути не повинно: одна сесія, запущена у двох місцях,
+# ламається з AUTH_KEY_DUPLICATED разом із продом. У .env для dev TG_API_ID і
+# TG_API_HASH лишаються порожніми, парсер просто не стартує.
+
+services:
+  caddy:
+    # Свого Caddy в dev немає.
+    profiles: ["disabled"]
+
+  proxy:
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - light-ua-dev-proxy
+
+networks:
+  edge:
+    name: light-ua-edge
+    external: true

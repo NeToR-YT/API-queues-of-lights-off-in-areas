@@ -12,7 +12,7 @@ services:
     expose:
       - "5001"
     volumes:
-      # Несекретна частина конфігу (канали, інтервали) — read-only.
+      # Несекретна частина конфігу (канали, інтервали), лише для читання.
       - ./backend-js/config.json:/app/config.json:ro
       # Сесія Telegram; створюється при першому інтерактивному вході.
       - ./backend-js/secrets:/app/secrets
@@ -26,9 +26,10 @@ services:
     restart: unless-stopped
     logging: *logging
 
-  frontend:
-    build: ./frontend
-    # Лише всередині compose-мережі: назовні — тільки через Caddy (HTTPS).
+  proxy:
+    image: nginx:stable-alpine
+    # Правила доступу до API (nginx.conf). Лише всередині compose-мережі:
+    # назовні доступ лише через Caddy (HTTPS).
     expose:
       - "80"
     volumes:
@@ -46,6 +47,11 @@ services:
       - "443:443/udp" # HTTP/3
     environment:
       - DOMAIN=${DOMAIN:-localhost}
+      - DEV_DOMAIN=${DEV_DOMAIN:-dev.localhost}
+    networks:
+      - default
+      # Через цю мережу Caddy бачить dev-стек (deploy/compose.dev.yml).
+      - edge
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Сертифікати й ключі ACME-акаунта: без тому Caddy перевипускав би їх при кожному
@@ -53,19 +59,23 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - frontend
+      - proxy
     restart: unless-stopped
     logging: *logging
 
   mongo:
     image: mongo:7
-    # WiredTiger за замовчуванням бере ~50% RAM. 1 ГБ — з запасом для наших даних
+    # WiredTiger за замовчуванням бере близько половини RAM. 1 ГБ вистачає з запасом для наших даних
     # і з місцем під майбутні Python-сервіси на Oracle (12 ГБ).
     command: ["--wiredTigerCacheSizeGB", "1"]
     volumes:
       - mongo_data:/data/db
     restart: unless-stopped
     logging: *logging
+
+networks:
+  edge:
+    name: light-ua-edge
 
 volumes:
   mongo_data:

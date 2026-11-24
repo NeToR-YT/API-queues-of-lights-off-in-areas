@@ -7,7 +7,7 @@ secrets/
 *.session
 backend-js/config.json
 
-# ── Node (backend-js, frontend) ─────────────────────────
+# ── Node (backend-js) ─────────────────────────────────
 node_modules/
 dist/
 *.log

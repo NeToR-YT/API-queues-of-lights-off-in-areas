@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   # Джоби парсера й платформи (обидва Python) вмикаються самі, щойно в каталозі
-  # з'явиться pyproject.toml. Поки код не написаний — пропускаються, CI лишається зеленим.
+  # з'явиться pyproject.toml. Поки коду немає, вони пропускаються, і CI лишається зеленим.
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -71,7 +71,7 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest -q
 
-  # Поточна TS-бета: перевіряємо, що бекенд і фронт збираються, поки вони живуть у проді.
+  # Поточна TS-бета: перевіряємо, що бекенд збирається, поки він живе в проді.
   beta:
     runs-on: ubuntu-latest
     steps:
@@ -81,7 +81,4 @@ jobs:
           node-version: "22"
       - name: backend-js
         working-directory: backend-js
-        run: npm ci && npm run build
-      - name: frontend
-        working-directory: frontend
         run: npm ci && npm run build

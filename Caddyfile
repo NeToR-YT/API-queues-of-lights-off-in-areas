@@ -1,8 +1,8 @@
 # Публічна точка входу: HTTPS із сертифікатом Let's Encrypt, який Caddy отримує
-# й оновлює сам. Домен — змінна DOMAIN у .env (напр. svitloua.duckdns.org).
-# Без DOMAIN — localhost із локальним самопідписаним сертифікатом для перевірок.
+# й оновлює сам. Домен задає змінна DOMAIN у .env (наприклад, svitloua.duckdns.org).
+# Без DOMAIN працює localhost із самопідписаним сертифікатом для локальних перевірок.
 #
-# Усю логіку (статика, /api, 403 на /api/update, rate limit) тримає nginx за Caddy.
+# Правила доступу до API (403 на /api/update, rate limit) тримає nginx за Caddy.
 
 {$DOMAIN:localhost} {
 	encode zstd gzip
@@ -12,5 +12,16 @@
 		-Server
 	}
 
-	reverse_proxy frontend:80
+	reverse_proxy proxy:80
+}
+
+# Dev-середовище (deploy/compose.dev.yml). Поки dev-стек не запущений, тут буде 502.
+{$DEV_DOMAIN:dev.localhost} {
+	encode zstd gzip
+
+	header {
+		-Server
+	}
+
+	reverse_proxy light-ua-dev-proxy:80
 }

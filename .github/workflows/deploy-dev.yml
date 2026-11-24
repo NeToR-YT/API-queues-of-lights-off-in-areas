@@ -1,0 +1,50 @@
+name: Deploy dev
+
+# Кожен пуш у develop, після якого CI зелений, автоматично їде в dev-середовище.
+# Ручний запуск (Run workflow на гілці develop) перевикладає поточну голову develop.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      url: https://${{ vars.DEV_DOMAIN }}/api/status
+    steps:
+      - name: SSH setup
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: ssh -o BatchMode=yes "deploy@$HOST" dev "$SHA"
+
+      - name: Smoke test
+        env:
+          DOMAIN: ${{ vars.DEV_DOMAIN }}
+        run: |
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$DOMAIN/api/status"
+          echo

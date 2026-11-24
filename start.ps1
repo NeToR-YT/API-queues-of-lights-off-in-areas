@@ -3,7 +3,6 @@ param(
 )
 
 $BACKEND  = Join-Path $PSScriptRoot "backend-js"
-$FRONTEND = Join-Path $PSScriptRoot "frontend"
 $CONFIG   = Join-Path $BACKEND "config.json"
 
 # Зупиняємо старі процеси
@@ -51,16 +50,10 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd -Windo
 
 Start-Sleep -Seconds 3
 
-# Запуск фронтенду
-Write-Host "Запускаємо фронтенд -> http://localhost:5000" -ForegroundColor Cyan
-$frontendCmd = "cd `"$FRONTEND`"; npm run dev"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendCmd -WindowStyle Normal
-
 # Результат
 Write-Host ""
 Write-Host "=================================" -ForegroundColor Green
 Write-Host "  ПРОЕКТ ЗАПУЩЕНО" -ForegroundColor Green
-Write-Host "  Frontend : http://localhost:5000" -ForegroundColor Green
 Write-Host "  Backend  : http://localhost:5001" -ForegroundColor Green
 if ($Parse) {
     Write-Host "  Парсинг з: $fromDate" -ForegroundColor Yellow

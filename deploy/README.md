@@ -1,17 +1,17 @@
-# deploy — експлуатація
+# deploy: експлуатація
 
 | Файл | Призначення |
 |---|---|
-| `light-ua.service` | systemd-юніт: піднімає docker compose з `/opt/light-ua` |
+| `light-ua.service` | systemd-юніт, піднімає docker compose з `/opt/light-ua` |
+| `remote-deploy.sh` | серверна частина деплою з GitHub Actions, ставиться в `/usr/local/bin/light-ua-deploy` |
+| `compose.dev.yml` | доповнення compose для dev-середовища в `/opt/light-ua-dev` |
 
-`docker-compose.yml` і `nginx.conf` поки лежать у корені репозиторію —
-сервер робить checkout релізного тегу і піднімає стек звідти. Переносити їх сюди
-будемо разом із деплоєм V1 (задача 2.8), щоб не ламати робочу бету.
+`docker-compose.yml`, `nginx.conf` і `Caddyfile` поки лежать у корені репозиторію: сервер
+перемикається на релізний тег і запускає стек звідти.
 
-## Як розгорнути
-
-Покроково з HTTPS — **`docs/deploy.md`**.
+Покрокове розгортання з HTTPS описане в [`docs/deploy.md`](../docs/deploy.md).
 
 ## Секрети на сервері
-`.env` і `backend-js/secrets/` створюються на сервері вручну і в git не потрапляють.
-Шаблони: `.env.example`, `backend-js/config.example.json`.
+
+`.env` і `backend-js/secrets/` створюються на сервері вручну й у git не потрапляють.
+Шаблони: `.env.example` і `backend-js/config.example.json`.
